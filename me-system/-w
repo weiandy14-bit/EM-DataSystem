@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>機電工程 - 歷年設備材料規格金額查詢系統</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #1F4E79;
+    --primary-light: #2E75B6;
+    --accent: #ED7D31;
+    --bg: #F8FAFC;
+  }
+  body { background: var(--bg); font-family: 'Microsoft JhengHei', 'PingFang TC', sans-serif; }
+  .navbar { background: var(--primary) !important; }
+  .navbar-brand { font-weight: 700; font-size: 1.1rem; letter-spacing: .5px; }
+  .search-card { border: none; box-shadow: 0 1px 6px rgba(0,0,0,.08); border-radius: 12px; }
+  .stats-bar { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat-box {
+    background: #fff; border-radius: 10px; padding: 14px 20px;
+    box-shadow: 0 1px 5px rgba(0,0,0,.07); flex: 1; min-width: 150px;
+    border-left: 4px solid var(--primary-light);
+  }
+  .stat-box.accent { border-left-color: var(--accent); }
+  .stat-box .val { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+  .stat-box .lbl { font-size: .78rem; color: #888; margin-top: 2px; }
+  .table thead th {
+    background: var(--primary); color: #fff; font-weight: 600;
+    white-space: nowrap; vertical-align: middle; position: sticky; top: 0; z-index: 2;
+  }
+  .table tbody tr:hover { background: #EFF6FF; }
+  .table-wrap { max-height: 56vh; overflow-y: auto; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .badge-cat {
+    font-size: .72rem; padding: 3px 8px; border-radius: 20px; font-weight: 600;
+  }
+  .cat-空調設備 { background:#DBEAFE; color:#1D4ED8; }
+  .cat-電力設備 { background:#FEF9C3; color:#854D0E; }
+  .cat-給排水設備 { background:#D1FAE5; color:#065F46; }
+  .cat-消防設備 { background:#FEE2E2; color:#991B1B; }
+  .cat-弱電系統 { background:#EDE9FE; color:#5B21B6; }
+  .cat-機械設備 { background:#FEF3C7; color:#92400E; }
+  .cat-電梯電扶梯 { background:#FCE7F3; color:#9D174D; }
+  .cat-其他 { background:#F3F4F6; color:#374151; }
+  .btn-primary-custom { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-primary-custom:hover { background: var(--primary-light); border-color: var(--primary-light); color: #fff; }
+  .action-btn { padding: 2px 7px; font-size: .8rem; }
+  .amount-cell { font-family: monospace; text-align: right; }
+  .modal-header-custom { background: var(--primary); color: #fff; }
+  .modal-header-custom .btn-close { filter: invert(1); }
+  #chartContainer { position: relative; height: 320px; }
+  .trend-label { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size:.75rem; }
+  .empty-state { padding: 60px; text-align: center; color: #aaa; }
+  .empty-state i { font-size: 3rem; display: block; margin-bottom: 12px; }
+  .table td { vertical-align: middle; }
+  @media (max-width: 768px) {
+    .hide-mobile { display: none !important; }
+    .stat-box .val { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-dark py-2 px-3">
+  <span class="navbar-brand">
+    <i class="bi bi-buildings me-2"></i>機電工程 | 歷年設備材料規格金額查詢系統
+  </span>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-sm btn-outline-light" onclick="openImport()"><i class="bi bi-upload me-1"></i>匯入 Excel</button>
+    <button class="btn btn-sm btn-outline-light" onclick="exportExcel()"><i class="bi bi-download me-1"></i>匯出 Excel</button>
+    <button class="btn btn-sm btn-light text-primary fw-bold" onclick="openAdd()"><i class="bi bi-plus-circle me-1"></i>新增紀錄</button>
+  </div>
+</nav>
+
+<div class="container-fluid px-3 py-3">
+
+  <!-- Search Panel -->
+  <div class="card search-card mb-3">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label small mb-1 fw-semibold">關鍵字搜尋</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="s_keyword" class="form-control" placeholder="名稱、規格、品牌、型號、備註…">
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-1 fw-semibold">設備類別</label>
+          <select id="s_category" class="form-select form-select-sm">
+            <option value="">全部類別</option>
+            
+            <option>空調設備</option>
+            
+            <option>電力設備</option>
+            
+            <option>給排水設備</option>
+            
+            <option>消防設備</option>
+            
+            <option>弱電系統</option>
+            
+            <option>機械設備</option>
+            
+            <option>電梯/電扶梯</option>
+            
+            <option>其他</option>
+            
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small mb-1 fw-semibold">年度範圍</label>
+          <div class="d-flex gap-1">
+            <input type="number" id="s_year_from" class="form-control form-control-sm" placeholder="起" min="2000" max="2099" style="width:70px">
+            <span class="align-self-center text-muted">—</span>
+            <input type="number" id="s_year_to" class="form-control form-control-sm" placeholder="迄" min="2000" max="2099" style="width:70px">
+          </div>
+        </div>
+        <div class="col-6 col-md-2 hide-mobile">
+          <label class="form-label small mb-1 fw-semibold">金額範圍 (元)</label>
+          <div class="d-flex gap-1">
+            <input type="number" id="s_amount_min" class="form-control form-control-sm" placeholder="最低">
+            <span class="align-self-center text-muted">—</span>
+            <input type="number" id="s_amount_max" class="form-control form-control-sm" placeholder="最高">
+          </div>
+        </div>
+        <div class="col-6 col-md-2 hide-mobile">
+          <label class="form-label small mb-1 fw-semibold">專案名稱</label>
+          <input type="text" id="s_project" class="form-control form-control-sm" placeholder="輸入專案…">
+        </div>
+        <div class="col-12 col-md-1 d-flex gap-2">
+          <button class="btn btn-sm btn-primary-custom w-100" onclick="doSearch()"><i class="bi bi-search"></i> 查詢</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="clearSearch()" title="清除"><i class="bi bi-x-circle"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar mb-3" id="statsBar">
+    <div class="stat-box">
+      <div class="val" id="stat_count">—</div>
+      <div class="lbl"><i class="bi bi-list-ul me-1"></i>查詢筆數</div>
+    </div>
+    <div class="stat-box accent">
+      <div class="val" id="stat_total">—</div>
+      <div class="lbl"><i class="bi bi-currency-dollar me-1"></i>總金額 (元)</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" id="stat_avg">—</div>
+      <div class="lbl"><i class="bi bi-graph-up me-1"></i>平均單價 (元)</div>
+    </div>
+    <div class="d-flex align-items-center ms-auto gap-2">
+      <button class="btn btn-sm btn-outline-primary" onclick="openTrend()">
+        <i class="bi bi-graph-up-arrow me-1"></i>趨勢分析
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table class="table table-sm table-hover mb-0" id="mainTable">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th style="width:60px">年度</th>
+          <th style="width:100px">類別</th>
+          <th>名稱</th>
+          <th class="hide-mobile">品牌 / 型號</th>
+          <th class="hide-mobile">規格</th>
+          <th style="width:50px">單位</th>
+          <th style="width:110px">金額 (元)</th>
+          <th style="width:50px" class="hide-mobile">數量</th>
+          <th style="width:130px" class="hide-mobile">專案</th>
+          <th style="width:80px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="11" class="empty-state"><i class="bi bi-hourglass-split"></i>載入中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="text-muted small mt-2" id="resultInfo"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header modal-header-custom py-2">
+        <h6 class="modal-title mb-0" id="editModalTitle"><i class="bi bi-pencil-square me-2"></i>新增 / 編輯紀錄</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="f_id">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">設備 / 材料名稱 <span class="text-danger">*</span></label>
+            <input type="text" id="f_name" class="form-control form-control-sm" placeholder="例：變頻離心式冰水主機">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold small">類別 <span class="text-danger">*</span></label>
+            <select id="f_category" class="form-select form-select-sm">
+              
+              <option>空調設備</option>
+              
+              <option>電力設備</option>
+              
+              <option>給排水設備</option>
+              
+              <option>消防設備</option>
+              
+              <option>弱電系統</option>
+              
+              <option>機械設備</option>
+              
+              <option>電梯/電扶梯</option>
+              
+              <option>其他</option>
+              
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold small">年度 <span class="text-danger">*</span></label>
+            <input type="number" id="f_year" class="form-control form-control-sm" min="2000" max="2099">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">品牌</label>
+            <input type="text" id="f_brand" class="form-control form-control-sm" placeholder="例：約克、ABB、荏原">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">型號</label>
+            <input type="text" id="f_model" class="form-control form-control-sm" placeholder="例：YLAA0470">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">單位</label>
+            <input type="text" id="f_unit" class="form-control form-control-sm" placeholder="台 / 套 / 式 / 面">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold small">規格</label>
+            <input type="text" id="f_spec" class="form-control form-control-sm" placeholder="例：1000RT 380V 60Hz 含冷媒 R134a">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">單價 (元) <span class="text-danger">*</span></label>
+            <input type="number" id="f_amount" class="form-control form-control-sm" placeholder="0" min="0" step="1">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-semibold small">數量</label>
+            <input type="number" id="f_quantity" class="form-control form-control-sm" value="1" min="0.01" step="0.01">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">專案名稱</label>
+            <input type="text" id="f_project" class="form-control form-control-sm" placeholder="例：台北辦公大樓新建工程">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">供應商</label>
+            <input type="text" id="f_supplier" class="form-control form-control-sm" placeholder="例：欣達冷凍工程">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold small">備註</label>
+            <input type="text" id="f_notes" class="form-control form-control-sm" placeholder="含安裝、報價日期等補充說明">
+          </div>
+        </div>
+        <div id="formError" class="alert alert-danger mt-3 py-2 d-none small"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-sm btn-primary-custom" onclick="saveItem()"><i class="bi bi-check-circle me-1"></i>儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Trend Modal -->
+<div class="modal fade" id="trendModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header modal-header-custom py-2">
+        <h6 class="modal-title mb-0"><i class="bi bi-graph-up-arrow me-2"></i>歷年價格趨勢分析</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-5">
+            <label class="form-label small fw-semibold">設備名稱關鍵字</label>
+            <input type="text" id="t_name" class="form-control form-control-sm" placeholder="例：冰水主機、變壓器…">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">類別篩選</label>
+            <select id="t_category" class="form-select form-select-sm">
+              <option value="">全部類別</option>
+              
+              <option>空調設備</option>
+              
+              <option>電力設備</option>
+              
+              <option>給排水設備</option>
+              
+              <option>消防設備</option>
+              
+              <option>弱電系統</option>
+              
+              <option>機械設備</option>
+              
+              <option>電梯/電扶梯</option>
+              
+              <option>其他</option>
+              
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-sm btn-primary-custom w-100" onclick="loadTrend()"><i class="bi bi-search me-1"></i>分析</button>
+          </div>
+        </div>
+        <div id="chartContainer"><canvas id="trendChart"></canvas></div>
+        <div id="trendTable" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header modal-header-custom py-2">
+        <h6 class="modal-title mb-0"><i class="bi bi-upload me-2"></i>匯入 Excel</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">
+          請先下載範本，依格式填寫後上傳。標示 <strong>*</strong> 為必填欄位。
+        </p>
+        <div class="mb-3">
+          <a href="/api/template" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-file-earmark-excel me-1"></i>下載匯入範本
+          </a>
+        </div>
+        <label class="form-label small fw-semibold">選擇 Excel 檔案</label>
+        <input type="file" id="importFile" class="form-control form-control-sm" accept=".xlsx,.xls">
+        <div id="importResult" class="mt-3"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-sm btn-primary-custom" onclick="doImport()">
+          <i class="bi bi-cloud-upload me-1"></i>開始匯入
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2 border-0">
+        <h6 class="modal-title text-danger mb-0"><i class="bi bi-exclamation-triangle me-2"></i>確認刪除</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0">
+        <p class="small mb-0">確定要刪除「<strong id="deleteItemName"></strong>」這筆紀錄嗎？此操作無法復原。</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete()">刪除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const editModal = new bootstrap.Modal('#editModal');
+const trendModal = new bootstrap.Modal('#trendModal');
+const importModal = new bootstrap.Modal('#importModal');
+const deleteModal = new bootstrap.Modal('#deleteModal');
+
+let currentData = [];
+let deleteId = null;
+let trendChart = null;
+
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('zh-TW');
+const catClass = c => 'cat-' + c.replace('/', '');
+
+function getFilters() {
+  return {
+    keyword: document.getElementById('s_keyword').value,
+    category: document.getElementById('s_category').value,
+    year_from: document.getElementById('s_year_from').value,
+    year_to: document.getElementById('s_year_to').value,
+    amount_min: document.getElementById('s_amount_min').value,
+    amount_max: document.getElementById('s_amount_max').value,
+    project: document.getElementById('s_project').value,
+  };
+}
+
+function buildQuery(params) {
+  return '?' + Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+}
+
+async function doSearch() {
+  const params = getFilters();
+  const qs = buildQuery(params);
+
+  document.getElementById('tableBody').innerHTML = `<tr><td colspan="11" class="empty-state"><i class="bi bi-hourglass-split"></i>查詢中…</td></tr>`;
+
+  const [itemsRes, statsRes] = await Promise.all([
+    fetch('/api/items' + qs),
+    fetch('/api/stats' + qs)
+  ]);
+  currentData = await itemsRes.json();
+  const stats = await statsRes.json();
+
+  document.getElementById('stat_count').textContent = fmt(stats.cnt);
+  document.getElementById('stat_total').textContent = fmt(Math.round(stats.total));
+  document.getElementById('stat_avg').textContent = fmt(Math.round(stats.avg_amt));
+
+  renderTable(currentData);
+  document.getElementById('resultInfo').textContent = `共 ${currentData.length} 筆資料`;
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-state"><i class="bi bi-inbox"></i>查無資料</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((r, i) => `
+    <tr>
+      <td class="text-muted small">${i + 1}</td>
+      <td class="fw-semibold">${r.year}</td>
+      <td><span class="badge-cat ${catClass(r.category)}">${r.category}</span></td>
+      <td>
+        <div class="fw-semibold">${esc(r.name)}</div>
+        ${r.supplier ? `<div class="text-muted small">${esc(r.supplier)}</div>` : ''}
+      </td>
+      <td class="small hide-mobile">${esc(r.brand)}${r.model ? ' / ' + esc(r.model) : ''}</td>
+      <td class="small text-muted hide-mobile" style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.spec)}">${esc(r.spec)}</td>
+      <td class="text-center small">${esc(r.unit)}</td>
+      <td class="amount-cell fw-semibold text-primary">${fmt(r.amount)}</td>
+      <td class="text-center small hide-mobile">${r.quantity}</td>
+      <td class="small hide-mobile text-muted" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.project)}">${esc(r.project)}</td>
+      <td>
+        <button class="btn btn-outline-primary action-btn me-1" onclick="openEdit(${r.id})" title="編輯"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-outline-danger action-btn" onclick="openDelete(${r.id}, '${esc(r.name)}')" title="刪除"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(s) {
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function clearSearch() {
+  ['s_keyword','s_year_from','s_year_to','s_amount_min','s_amount_max','s_project'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('s_category').value = '';
+  doSearch();
+}
+
+function openAdd() {
+  document.getElementById('f_id').value = '';
+  document.getElementById('editModalTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>新增設備材料紀錄';
+  ['f_name','f_brand','f_model','f_spec','f_project','f_supplier','f_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_category').value = '空調設備';
+  document.getElementById('f_unit').value = '台';
+  document.getElementById('f_year').value = new Date().getFullYear();
+  document.getElementById('f_amount').value = '';
+  document.getElementById('f_quantity').value = 1;
+  document.getElementById('formError').classList.add('d-none');
+  editModal.show();
+}
+
+function openEdit(id) {
+  const r = currentData.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('editModalTitle').innerHTML = '<i class="bi bi-pencil-square me-2"></i>編輯設備材料紀錄';
+  document.getElementById('f_id').value = r.id;
+  document.getElementById('f_name').value = r.name;
+  document.getElementById('f_category').value = r.category;
+  document.getElementById('f_brand').value = r.brand;
+  document.getElementById('f_model').value = r.model;
+  document.getElementById('f_spec').value = r.spec;
+  document.getElementById('f_unit').value = r.unit;
+  document.getElementById('f_year').value = r.year;
+  document.getElementById('f_amount').value = r.amount;
+  document.getElementById('f_quantity').value = r.quantity;
+  document.getElementById('f_project').value = r.project;
+  document.getElementById('f_supplier').value = r.supplier;
+  document.getElementById('f_notes').value = r.notes;
+  document.getElementById('formError').classList.add('d-none');
+  editModal.show();
+}
+
+async function saveItem() {
+  const errEl = document.getElementById('formError');
+  const name = document.getElementById('f_name').value.trim();
+  const year = document.getElementById('f_year').value;
+  const amount = document.getElementById('f_amount').value;
+
+  if (!name) { errEl.textContent = '請填入設備/材料名稱'; errEl.classList.remove('d-none'); return; }
+  if (!year) { errEl.textContent = '請填入年度'; errEl.classList.remove('d-none'); return; }
+  if (!amount) { errEl.textContent = '請填入金額'; errEl.classList.remove('d-none'); return; }
+  errEl.classList.add('d-none');
+
+  const id = document.getElementById('f_id').value;
+  const payload = {
+    name, year, amount,
+    category: document.getElementById('f_category').value,
+    brand: document.getElementById('f_brand').value,
+    model: document.getElementById('f_model').value,
+    spec: document.getElementById('f_spec').value,
+    unit: document.getElementById('f_unit').value,
+    quantity: document.getElementById('f_quantity').value || 1,
+    project: document.getElementById('f_project').value,
+    supplier: document.getElementById('f_supplier').value,
+    notes: document.getElementById('f_notes').value,
+  };
+
+  const url = id ? `/api/items/${id}` : '/api/items';
+  const method = id ? 'PUT' : 'POST';
+  await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+  editModal.hide();
+  doSearch();
+}
+
+function openDelete(id, name) {
+  deleteId = id;
+  document.getElementById('deleteItemName').textContent = name;
+  deleteModal.show();
+}
+
+async function confirmDelete() {
+  if (!deleteId) return;
+  await fetch(`/api/items/${deleteId}`, { method: 'DELETE' });
+  deleteModal.hide();
+  doSearch();
+}
+
+function openImport() {
+  document.getElementById('importFile').value = '';
+  document.getElementById('importResult').innerHTML = '';
+  importModal.show();
+}
+
+async function doImport() {
+  const file = document.getElementById('importFile').files[0];
+  if (!file) { alert('請選擇 Excel 檔案'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const resultEl = document.getElementById('importResult');
+  resultEl.innerHTML = '<div class="text-muted small">匯入中…</div>';
+  const res = await fetch('/api/import', { method: 'POST', body: fd });
+  const data = await res.json();
+  let html = `<div class="alert alert-success py-2 small">成功匯入 <strong>${data.imported}</strong> 筆資料</div>`;
+  if (data.errors && data.errors.length) {
+    html += `<div class="alert alert-warning py-2 small"><strong>警告：</strong><ul class="mb-0">` +
+      data.errors.map(e => `<li>${e}</li>`).join('') + `</ul></div>`;
+  }
+  resultEl.innerHTML = html;
+  if (data.imported > 0) doSearch();
+}
+
+function exportExcel() {
+  const params = getFilters();
+  const qs = buildQuery(params);
+  window.location.href = '/api/export' + qs;
+}
+
+function openTrend() {
+  trendModal.show();
+  loadTrend();
+}
+
+async function loadTrend() {
+  const name = document.getElementById('t_name').value;
+  const category = document.getElementById('t_category').value;
+  const qs = buildQuery({ name, category });
+  const res = await fetch('/api/trend' + qs);
+  const data = await res.json();
+
+  if (trendChart) trendChart.destroy();
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.year + ' 年'),
+      datasets: [
+        {
+          label: '平均金額 (元)',
+          data: data.map(d => Math.round(d.avg_amount)),
+          borderColor: '#1F4E79',
+          backgroundColor: 'rgba(31,78,121,0.1)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#1F4E79',
+          pointRadius: 5,
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: '最高金額 (元)',
+          data: data.map(d => Math.round(d.max_amount)),
+          borderColor: '#ED7D31',
+          borderDash: [5, 5],
+          borderWidth: 1.5,
+          pointRadius: 3,
+          tension: 0.3,
+        },
+        {
+          label: '最低金額 (元)',
+          data: data.map(d => Math.round(d.min_amount)),
+          borderColor: '#70AD47',
+          borderDash: [5, 5],
+          borderWidth: 1.5,
+          pointRadius: 3,
+          tension: 0.3,
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('zh-TW')} 元`
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => v.toLocaleString('zh-TW') } }
+      }
+    }
+  });
+
+  if (!data.length) {
+    document.getElementById('trendTable').innerHTML = '<p class="text-muted small text-center">查無資料，請調整搜尋條件</p>';
+    return;
+  }
+
+  const rows = data.map(d => `
+    <tr>
+      <td>${d.year}</td>
+      <td class="text-end">${fmt(Math.round(d.avg_amount))}</td>
+      <td class="text-end">${fmt(Math.round(d.min_amount))}</td>
+      <td class="text-end">${fmt(Math.round(d.max_amount))}</td>
+      <td class="text-center">${d.count}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('trendTable').innerHTML = `
+    <table class="table table-sm table-bordered small text-center">
+      <thead class="table-dark">
+        <tr><th>年度</th><th>平均金額</th><th>最低金額</th><th>最高金額</th><th>筆數</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+['s_keyword','s_year_from','s_year_to','s_amount_min','s_amount_max','s_project'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+});
+
+doSearch();
+</script>
+</body>
+</html>
