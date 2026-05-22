@@ -1,0 +1,92 @@
+import type { Equipment, Material, Specification, PricingRecord, InspectionRecord } from '../types'
+
+export const mockEquipment: Equipment[] = [
+  { id: 'eq1', name: '變頻離心式冰水主機', type: '空調設備', model: 'YLAA0470', manufacturer: '約克', installDate: '2023-03-15', status: 'active', location: '台北辦公大樓A棟 B2機房', notes: '' },
+  { id: 'eq2', name: '冷卻水塔', type: '空調設備', model: 'FRP-1000RT', manufacturer: '馬可尼', installDate: '2023-03-20', status: 'active', location: '台北辦公大樓A棟 屋頂', notes: '' },
+  { id: 'eq3', name: '高壓氣體絕緣開關(GIS)', type: '電力設備', model: 'ZX2-17.5', manufacturer: 'ABB', installDate: '2023-01-10', status: 'active', location: '台北辦公大樓A棟 電機房', notes: '' },
+  { id: 'eq4', name: '乾式變壓器', type: '電力設備', model: 'TR-2000KVA', manufacturer: '正昇', installDate: '2023-01-15', status: 'active', location: '台北辦公大樓A棟 電機房', notes: '' },
+  { id: 'eq5', name: '緊急發電機', type: '電力設備', model: 'C1000D5', manufacturer: '康明斯', installDate: '2023-02-01', status: 'active', location: '台北辦公大樓A棟 B1', notes: '含ATS' },
+  { id: 'eq6', name: '消防幫浦組', type: '消防設備', model: 'HSHD150', manufacturer: '荏原', installDate: '2023-04-01', status: 'active', location: '台北辦公大樓A棟 B2消防室', notes: '含柴油備用泵' },
+  { id: 'eq7', name: '電梯', type: '電梯/電扶梯', model: 'NEXIEZ-MRL', manufacturer: '三菱', installDate: '2023-06-01', status: 'active', location: '台北辦公大樓A棟', notes: '無機房型，共6台' },
+  { id: 'eq8', name: '門禁系統', type: '弱電系統', model: 'BioEntry', manufacturer: '台灣Suprema', installDate: '2023-05-01', status: 'active', location: '台北辦公大樓A棟 各樓層', notes: '含軟體授權' },
+  { id: 'eq9', name: '空氣處理機', type: '空調設備', model: 'AHU-30000CMH', manufacturer: '約克', installDate: '2022-11-01', status: 'decommissioned', location: '台北辦公大樓B棟', notes: '' },
+]
+
+export const mockMaterials: Material[] = [
+  { id: 'mt1', name: '冷媒管（銅管）', type: '空調材料', grade: 'JIS H 3300 C1220', unit: 'm', supplier: '大同' },
+  { id: 'mt2', name: '高壓電纜 22kV', type: '電力材料', grade: 'CNS 2653 XLPE', unit: 'm', supplier: '大亞電線電纜' },
+  { id: 'mt3', name: '消防灑水頭 ESFR', type: '消防材料', grade: 'UL Listed K-25', unit: 'piece', supplier: '台灣印' },
+  { id: 'mt4', name: '鍍鋅鋼管 SCH40', type: '給排水材料', grade: 'CNS 4626', unit: 'm', supplier: '中鋼' },
+  { id: 'mt5', name: '耐燃電線 PVC 5.5mm²', type: '電力材料', grade: 'CNS 3292', unit: 'm', supplier: '大亞電線電纜' },
+]
+
+export const mockSpecifications: Specification[] = [
+  {
+    id: 'sp1', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機',
+    effectiveFrom: '2022-01-01', effectiveTo: '2022-12-31', versionLabel: '2022版',
+    specData: { 冷凍噸: '1000RT', 電壓: '380V', 頻率: '60Hz', 冷媒: 'R134a', 性能係數COP: '6.1', 重量: '12,500kg' },
+    changeSummary: '初版規格'
+  },
+  {
+    id: 'sp2', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機',
+    effectiveFrom: '2023-01-01', effectiveTo: null, versionLabel: '2023版（現行）',
+    specData: { 冷凍噸: '1000RT', 電壓: '380V', 頻率: '60Hz', 冷媒: 'R513A', 性能係數COP: '6.5', 重量: '12,200kg' },
+    changeSummary: '冷媒由 R134a 更換為 R513A（低GWP），COP提升至6.5'
+  },
+  {
+    id: 'sp3', entityType: 'equipment', entityId: 'eq4', entityName: '乾式變壓器',
+    effectiveFrom: '2022-01-01', effectiveTo: '2023-06-30', versionLabel: '2022版',
+    specData: { 容量: '2000KVA', 一次側電壓: '22.8kV', 二次側電壓: '0.48kV', 阻抗: '5.75%', 絕緣等級: 'F級' },
+    changeSummary: '初版規格'
+  },
+  {
+    id: 'sp4', entityType: 'equipment', entityId: 'eq4', entityName: '乾式變壓器',
+    effectiveFrom: '2023-07-01', effectiveTo: null, versionLabel: '2023版（現行）',
+    specData: { 容量: '2000KVA', 一次側電壓: '22.8kV', 二次側電壓: '0.48kV', 阻抗: '5.75%', 絕緣等級: 'H級', 溫升: '100K' },
+    changeSummary: '絕緣等級提升為H級，增加溫升規格100K'
+  },
+  {
+    id: 'sp5', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV',
+    effectiveFrom: '2021-01-01', effectiveTo: '2022-12-31', versionLabel: '2021版',
+    specData: { 額定電壓: '22kV', 導體截面積: '240mm²', 絕緣材質: 'XLPE', 外被: 'PVC', 耐溫: '90°C' },
+    changeSummary: '初版'
+  },
+  {
+    id: 'sp6', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV',
+    effectiveFrom: '2023-01-01', effectiveTo: null, versionLabel: '2023版（現行）',
+    specData: { 額定電壓: '22kV', 導體截面積: '240mm²', 絕緣材質: 'XLPE', 外被: 'LSZH', 耐溫: '90°C', 低煙無鹵: '是' },
+    changeSummary: '外被由 PVC 改為 LSZH（低煙無鹵），增加低煙無鹵規格要求'
+  },
+]
+
+export const mockPricing: PricingRecord[] = [
+  { id: 'pr1', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機', price: 2950000, priceDate: '2022-03-01', supplier: '欣達冷凍', projectRef: '台北辦公大樓B棟', sourceType: 'contract', notes: '' },
+  { id: 'pr2', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機', price: 3200000, priceDate: '2023-02-15', supplier: '欣達冷凍', projectRef: '台北辦公大樓A棟', sourceType: 'contract', notes: '含安裝調試' },
+  { id: 'pr3', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機', price: 3500000, priceDate: '2024-01-10', supplier: '開利空調', projectRef: '新竹科技廠辦', sourceType: 'quote', notes: '' },
+  { id: 'pr4', entityType: 'equipment', entityId: 'eq4', entityName: '乾式變壓器', price: 680000, priceDate: '2022-12-01', supplier: '正昇電機', projectRef: '台北辦公大樓A棟', sourceType: 'contract', notes: '' },
+  { id: 'pr5', entityType: 'equipment', entityId: 'eq4', entityName: '乾式變壓器', price: 720000, priceDate: '2023-11-20', supplier: '正昇電機', projectRef: '新竹科技廠辦', sourceType: 'contract', notes: '' },
+  { id: 'pr6', entityType: 'equipment', entityId: 'eq5', entityName: '緊急發電機', price: 2600000, priceDate: '2022-05-01', supplier: '康明斯台灣', projectRef: '台北辦公大樓B棟', sourceType: 'contract', notes: '' },
+  { id: 'pr7', entityType: 'equipment', entityId: 'eq5', entityName: '緊急發電機', price: 2800000, priceDate: '2023-01-15', supplier: '康明斯台灣', projectRef: '台北辦公大樓A棟', sourceType: 'contract', notes: '含ATS' },
+  { id: 'pr8', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV', price: 4800, priceDate: '2021-06-01', supplier: '大亞電線電纜', projectRef: '台北辦公大樓B棟', sourceType: 'actual', notes: '元/m' },
+  { id: 'pr9', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV', price: 5200, priceDate: '2022-08-01', supplier: '大亞電線電纜', projectRef: '台北辦公大樓A棟', sourceType: 'actual', notes: '元/m' },
+  { id: 'pr10', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV', price: 5650, priceDate: '2023-09-15', supplier: '大亞電線電纜', projectRef: '新竹科技廠辦', sourceType: 'contract', notes: '元/m' },
+  { id: 'pr11', entityType: 'material', entityId: 'mt2', entityName: '高壓電纜 22kV', price: 5900, priceDate: '2024-02-01', supplier: '大亞電線電纜', projectRef: '新竹科技廠辦2期', sourceType: 'quote', notes: '元/m' },
+]
+
+export const mockInspections: InspectionRecord[] = [
+  {
+    id: 'ins1', inspectionDate: '2023-09-15', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機',
+    specSnapshot: { 冷凍噸: '1000RT', 電壓: '380V', 冷媒: 'R513A', 性能係數COP: '6.5' },
+    priceAtInspection: 3200000, result: 'pass', findings: '運轉正常，COP量測值6.48，符合規格。冷媒充填量正常。', inspector: '王大明'
+  },
+  {
+    id: 'ins2', inspectionDate: '2024-03-20', entityType: 'equipment', entityId: 'eq1', entityName: '變頻離心式冰水主機',
+    specSnapshot: { 冷凍噸: '1000RT', 電壓: '380V', 冷媒: 'R513A', 性能係數COP: '6.5' },
+    priceAtInspection: 3500000, result: 'conditional', findings: '主機運轉正常，但發現冷卻水側水垢累積，建議安排化學清洗。振動值略高於標準值5%。', inspector: '李小華'
+  },
+  {
+    id: 'ins3', inspectionDate: '2023-12-01', entityType: 'equipment', entityId: 'eq4', entityName: '乾式變壓器',
+    specSnapshot: { 容量: '2000KVA', 絕緣等級: 'H級', 溫升: '100K' },
+    priceAtInspection: 720000, result: 'pass', findings: '溫升測試正常，絕緣電阻值良好。', inspector: '陳志偉'
+  },
+]
