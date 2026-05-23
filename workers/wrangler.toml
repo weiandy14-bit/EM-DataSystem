@@ -1,0 +1,17 @@
+name = "em-datasystem-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# 在 Cloudflare Dashboard 設定以下 Secrets（不要放在這裡）:
+# NOTION_TOKEN = "secret_xxx"
+# NOTION_DB_EQUIPMENT = "database_id"
+# NOTION_DB_MATERIALS = "database_id"
+# NOTION_DB_SPECIFICATIONS = "database_id"
+# NOTION_DB_PRICING = "database_id"
+# NOTION_DB_INSPECTIONS = "database_id"
+
+[[routes]]
+pattern = "/api/*"
+zone_name = ""
