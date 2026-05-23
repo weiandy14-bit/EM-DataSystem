@@ -286,8 +286,9 @@ export default function EquipmentList() {
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
-      {/* 左欄：篩選面板 */}
-      <div style={{ width: 220, flexShrink: 0, background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '16px 12px' }}>
+      {/* 左欄：篩選面板 + 查詢歷史 */}
+      <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '16px 12px' }}>
         <Button type="primary" block style={{ marginBottom: 16, fontWeight: 600 }} onClick={handleConfirm}>
           確定查詢
         </Button>
@@ -339,7 +340,7 @@ export default function EquipmentList() {
       </div>
 
       {/* 查詢歷史 */}
-      <div style={{ width: 220, flexShrink: 0, background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '12px' }}>
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 13, color: '#333' }}>
             <HistoryOutlined style={{ marginRight: 6 }} />查詢歷史
@@ -365,6 +366,7 @@ export default function EquipmentList() {
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {/* 右欄：查詢結果 */}
