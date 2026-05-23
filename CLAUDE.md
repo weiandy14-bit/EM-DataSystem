@@ -132,7 +132,23 @@ NOTION_TOKEN=ntn_Y36273413265BhEzxfaYMjGKn31aEWz3WujRl6L46nE9fK
 // entityType/entityId 從 relation 欄位判斷，不從文字欄位讀
 ```
 
-### 待完成事項
-1. **使用者操作**：GitHub Secrets 設定（`NOTION_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`）→ 合併 PR #4
-2. **前端部署**：建立 `deploy-frontend.yml`，部署到 Cloudflare Pages
-3. **前端 API URL 對接**：`VITE_API_BASE_URL` 環境變數指向已部署的 Worker（目前 dev 用 mock）
+### 待完成事項（使用者依序操作）
+
+**Step 1 — GitHub Secrets**
+repo → Settings → Secrets and variables → Actions → New repository secret：
+- `NOTION_TOKEN` = `ntn_Y36273413265BhEzxfaYMjGKn31aEWz3WujRl6L46nE9fK`
+- `CLOUDFLARE_API_TOKEN` = Cloudflare API Token
+- `CLOUDFLARE_ACCOUNT_ID` = Cloudflare Account ID
+
+**Step 2 — 合併 PR #4**
+→ 自動觸發 Workers 部署，取得 Worker URL：`https://em-datasystem-api.<subdomain>.workers.dev`
+
+**Step 3 — GitHub Variable**
+repo → Settings → Secrets and variables → Actions → Variables → New repository variable：
+- `VITE_API_BASE` = `https://em-datasystem-api.<subdomain>.workers.dev`（填實際 URL）
+
+**Step 4 — Cloudflare Pages 建立專案**
+Cloudflare Dashboard → Pages → Create a project → 名稱填 `em-datasystem`
+
+**Step 5 — 手動觸發前端部署**
+GitHub Actions → Deploy Frontend → Run workflow
