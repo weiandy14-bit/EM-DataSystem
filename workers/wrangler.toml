@@ -4,14 +4,9 @@ compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# 在 Cloudflare Dashboard 設定以下 Secrets（不要放在這裡）:
-# NOTION_TOKEN = "secret_xxx"
-# NOTION_DB_EQUIPMENT = "database_id"
-# NOTION_DB_MATERIALS = "database_id"
-# NOTION_DB_SPECIFICATIONS = "database_id"
-# NOTION_DB_PRICING = "database_id"
-# NOTION_DB_INSPECTIONS = "database_id"
-
-[[routes]]
-pattern = "/api/*"
-zone_name = ""
+NOTION_DB_EQUIPMENT      = "3690d834d60e81cc840ed14beced0b1c"
+NOTION_DB_MATERIALS      = "3690d834d60e81bcb6bee7bea490ca2f"
+NOTION_DB_SPECIFICATIONS = "3690d834d60e8139b68dc600f5bc1653"
+NOTION_DB_PRICING        = "3690d834d60e819eb135dbf929e02c79"
+NOTION_DB_INSPECTIONS    = "3690d834d60e816a9759c2297a7805eb"
+# NOTION_TOKEN is a Secret — set via: wrangler secret put NOTION_TOKEN
