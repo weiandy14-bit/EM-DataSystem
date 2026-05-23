@@ -11,26 +11,20 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
 
     const entityMapper = entityType === 'equipment' ? pageToEquipment : pageToMaterial
 
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
     const [entityPage, specPages, pricePages, inspPages] = await Promise.all([
       getPage(env, entityId),
       queryDatabase(env, env.NOTION_DB_SPECIFICATIONS, {
         and: [
-          { property: '資料類型', select: { equals: entityType } },
-          { property: '資料ID', rich_text: { equals: entityId } },
+          { property: relProp, relation: { contains: entityId } },
           { property: '失效日期', date: { is_empty: true } },
         ]
       }),
       queryDatabase(env, env.NOTION_DB_PRICING, {
-        and: [
-          { property: '資料類型', select: { equals: entityType } },
-          { property: '資料ID', rich_text: { equals: entityId } },
-        ]
+        property: relProp, relation: { contains: entityId }
       }, [{ property: '詢價日期', direction: 'descending' }]),
       queryDatabase(env, env.NOTION_DB_INSPECTIONS, {
-        and: [
-          { property: '資料類型', select: { equals: entityType } },
-          { property: '資料ID', rich_text: { equals: entityId } },
-        ]
+        property: relProp, relation: { contains: entityId }
       }, [{ property: '驗收日期', direction: 'descending' }]),
     ])
 
@@ -46,13 +40,14 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
   }
 
   // GET /api/inspection?entityType=&entityId=
-  const filters: any[] = []
-  if (entityType) filters.push({ property: '資料類型', select: { equals: entityType } })
-  if (entityId) filters.push({ property: '資料ID', rich_text: { equals: entityId } })
-
-  const filter = filters.length === 0 ? undefined
-    : filters.length === 1 ? filters[0]
-    : { and: filters }
+  let filter: unknown = undefined
+  if (entityType && entityId) {
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
+    filter = { property: relProp, relation: { contains: entityId } }
+  } else if (entityType) {
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
+    filter = { property: relProp, relation: { is_not_empty: true } }
+  }
 
   const pages = await queryDatabase(env, env.NOTION_DB_INSPECTIONS, filter, [
     { property: '驗收日期', direction: 'descending' }

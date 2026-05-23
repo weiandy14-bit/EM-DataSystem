@@ -63,6 +63,10 @@ export function getDateEnd(prop: any): string | null {
   return prop?.date?.end ?? null
 }
 
+export function getRelationId(prop: any): string {
+  return prop?.relation?.[0]?.id ?? ''
+}
+
 // --- Page to domain object mappers ---
 
 export function pageToEquipment(page: any) {
@@ -100,13 +104,14 @@ export function pageToMaterial(page: any) {
 
 export function pageToSpecification(page: any) {
   const p = page.properties
+  const hasEquipment = (p['設備']?.relation?.length ?? 0) > 0
   const specDataStr = getText(p['規格資料'])
   let specData: Record<string, string> = {}
   try { specData = JSON.parse(specDataStr) } catch { /* ignore */ }
   return {
     id: page.id,
-    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
-    entityId: getText(p['資料ID']),
+    entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
+    entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
     entityName: getText(p['資料名稱']),
     effectiveFrom: getDate(p['生效日期']),
     effectiveTo: getDate(p['失效日期']) || null,
@@ -118,10 +123,11 @@ export function pageToSpecification(page: any) {
 
 export function pageToPricingRecord(page: any) {
   const p = page.properties
+  const hasEquipment = (p['設備']?.relation?.length ?? 0) > 0
   return {
     id: page.id,
-    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
-    entityId: getText(p['資料ID']),
+    entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
+    entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
     entityName: getText(p['資料名稱']),
     price: getNumber(p['單價']),
     priceDate: getDate(p['詢價日期']),
@@ -134,14 +140,15 @@ export function pageToPricingRecord(page: any) {
 
 export function pageToInspectionRecord(page: any) {
   const p = page.properties
+  const hasEquipment = (p['設備']?.relation?.length ?? 0) > 0
   const snapshotStr = getText(p['規格快照'])
   let specSnapshot: Record<string, string> = {}
   try { specSnapshot = JSON.parse(snapshotStr) } catch { /* ignore */ }
   return {
     id: page.id,
     inspectionDate: getDate(p['驗收日期']),
-    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
-    entityId: getText(p['資料ID']),
+    entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
+    entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
     entityName: getText(p['資料名稱']),
     specSnapshot,
     priceAtInspection: getNumber(p['驗收時單價']),

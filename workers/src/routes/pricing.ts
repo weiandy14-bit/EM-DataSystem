@@ -43,20 +43,16 @@ export async function handlePricing(req: Request, env: Env, subpath: string): Pr
   // GET /api/pricing/allEquipmentRecords
   if (subpath === '/allEquipmentRecords') {
     const pages = await queryDatabase(env, env.NOTION_DB_PRICING, {
-      property: '資料類型',
-      select: { equals: 'equipment' }
+      property: '設備',
+      relation: { is_not_empty: true }
     }, [{ property: '詢價日期', direction: 'descending' }])
     return json(pages.map(pageToPricingRecord))
   }
 
   if (!entityType || !entityId) return json({ error: 'entityType and entityId required' }, 400)
 
-  const filter = {
-    and: [
-      { property: '資料類型', select: { equals: entityType } },
-      { property: '資料ID', rich_text: { equals: entityId } },
-    ]
-  }
+  const relProp = entityType === 'equipment' ? '設備' : '材料'
+  const filter = { property: relProp, relation: { contains: entityId } }
 
   const pages = await queryDatabase(env, env.NOTION_DB_PRICING, filter, [
     { property: '詢價日期', direction: 'descending' }

@@ -8,10 +8,10 @@ export async function handleSpecs(req: Request, env: Env): Promise<Response> {
 
   if (!entityType || !entityId) return json({ error: 'entityType and entityId required' }, 400)
 
+  const relProp = entityType === 'equipment' ? '設備' : '材料'
   const filter: any = {
     and: [
-      { property: '資料類型', select: { equals: entityType } },
-      { property: '資料ID', rich_text: { equals: entityId } },
+      { property: relProp, relation: { contains: entityId } },
     ]
   }
 
