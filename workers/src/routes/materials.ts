@@ -1,16 +1,16 @@
-import { queryDatabase, pageToMaterial, type Env } from '../notion'
+import { queryDatabase, getPage, pageToMaterial, type Env } from '../notion'
 
 export async function handleMaterials(req: Request, env: Env, path: string): Promise<Response> {
   const url = new URL(req.url)
   const id = path.replace('/api/materials', '').replace(/^\//, '')
 
   if (id) {
-    const pages = await queryDatabase(env, env.NOTION_DB_MATERIALS, {
-      property: 'ID',
-      rich_text: { equals: id },
-    })
-    if (!pages.length) return json(null, 404)
-    return json(pageToMaterial(pages[0]))
+    try {
+      const page = await getPage(env, id)
+      return json(pageToMaterial(page))
+    } catch {
+      return json(null, 404)
+    }
   }
 
   const filters: any[] = []

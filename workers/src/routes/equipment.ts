@@ -1,4 +1,4 @@
-import { queryDatabase, pageToEquipment, type Env } from '../notion'
+import { queryDatabase, getPage, pageToEquipment, type Env } from '../notion'
 
 export async function handleEquipment(req: Request, env: Env, path: string): Promise<Response> {
   const url = new URL(req.url)
@@ -6,12 +6,12 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (id) {
     // GET /api/equipment/:id
-    const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, {
-      property: 'ID',
-      rich_text: { equals: id },
-    })
-    if (!pages.length) return json(null, 404)
-    return json(pageToEquipment(pages[0]))
+    try {
+      const page = await getPage(env, id)
+      return json(pageToEquipment(page))
+    } catch {
+      return json(null, 404)
+    }
   }
 
   // GET /api/equipment?type=&status=&keyword=&buildingCategories=&yearStart=&yearEnd=

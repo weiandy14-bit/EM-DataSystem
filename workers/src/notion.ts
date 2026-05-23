@@ -26,6 +26,10 @@ async function notionRequest(env: Env, method: string, path: string, body?: unkn
   return res.json() as Promise<any>
 }
 
+export async function getPage(env: Env, pageId: string) {
+  return notionRequest(env, 'GET', `/pages/${pageId}`)
+}
+
 export async function queryDatabase(env: Env, dbId: string, filter?: unknown, sorts?: unknown) {
   const body: Record<string, unknown> = { page_size: 100 }
   if (filter) body.filter = filter
