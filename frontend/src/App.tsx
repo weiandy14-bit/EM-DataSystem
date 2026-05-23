@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
-import { Layout, Typography, Button, Space, Tag } from 'antd'
+import { Layout, Typography, Button, Space, Tag, Modal } from 'antd'
 import { FilePdfOutlined, LogoutOutlined, TeamOutlined } from '@ant-design/icons'
 import EquipmentList from './pages/EquipmentList'
 import Login from './pages/Login'
@@ -15,8 +15,18 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    logout()
-    onLogout()
+    Modal.confirm({
+      title: '確認登出',
+      content: '確定要登出系統嗎？',
+      okText: '登出',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        logout()
+        window.history.replaceState(null, '', '/')
+        onLogout()
+      },
+    })
   }
 
   return (
