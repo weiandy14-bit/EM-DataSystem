@@ -13,6 +13,7 @@ export interface Equipment {
   installDate: string
   status: EquipmentStatus
   location: string
+  buildingCategory: string
   notes: string
 }
 

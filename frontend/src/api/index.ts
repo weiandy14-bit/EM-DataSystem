@@ -22,7 +22,7 @@ function priceTrend(records: PricingRecord[]): PriceTrend[] {
 
 export const api = {
   equipment: {
-    list: async (filters?: { type?: string; status?: string; keyword?: string }): Promise<Equipment[]> => {
+    list: async (filters?: { type?: string; status?: string; keyword?: string; buildingCategories?: string[]; yearStart?: number; yearEnd?: number }): Promise<Equipment[]> => {
       await delay()
       let data = [...mockEquipment]
       if (filters?.type) data = data.filter(e => e.type === filters.type)
@@ -30,6 +30,17 @@ export const api = {
       if (filters?.keyword) {
         const kw = filters.keyword.toLowerCase()
         data = data.filter(e => e.name.toLowerCase().includes(kw) || e.manufacturer.toLowerCase().includes(kw) || e.model.toLowerCase().includes(kw))
+      }
+      if (filters?.buildingCategories?.length) {
+        data = data.filter(e => filters.buildingCategories!.includes(e.buildingCategory))
+      }
+      if (filters?.yearStart) {
+        const gStart = filters.yearStart + 1911
+        data = data.filter(e => new Date(e.installDate).getFullYear() >= gStart)
+      }
+      if (filters?.yearEnd) {
+        const gEnd = filters.yearEnd + 1911
+        data = data.filter(e => new Date(e.installDate).getFullYear() <= gEnd)
       }
       return data
     },
