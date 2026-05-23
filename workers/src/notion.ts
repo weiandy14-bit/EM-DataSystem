@@ -34,6 +34,10 @@ export async function queryDatabase(env: Env, dbId: string, filter?: unknown, so
   return data.results as any[]
 }
 
+export async function getPage(env: Env, pageId: string) {
+  return notionRequest(env, 'GET', `/pages/${pageId}`)
+}
+
 // --- Property extractors ---
 
 export function getText(prop: any): string {

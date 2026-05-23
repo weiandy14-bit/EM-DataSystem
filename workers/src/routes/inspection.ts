@@ -1,4 +1,4 @@
-import { queryDatabase, pageToInspectionRecord, pageToEquipment, pageToMaterial, pageToSpecification, pageToPricingRecord, type Env } from '../notion'
+import { queryDatabase, getPage, pageToInspectionRecord, pageToEquipment, pageToMaterial, pageToSpecification, pageToPricingRecord, type Env } from '../notion'
 
 export async function handleInspection(req: Request, env: Env, subpath: string): Promise<Response> {
   const url = new URL(req.url)
@@ -12,11 +12,8 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
     const dbId = entityType === 'equipment' ? env.NOTION_DB_EQUIPMENT : env.NOTION_DB_MATERIALS
     const entityMapper = entityType === 'equipment' ? pageToEquipment : pageToMaterial
 
-    const [entityPages, specPages, pricePages, inspPages] = await Promise.all([
-      queryDatabase(env, dbId, {
-        property: 'ID',
-        rich_text: { equals: entityId },
-      }),
+    const [entityPage, specPages, pricePages, inspPages] = await Promise.all([
+      getPage(env, entityId).catch(() => null),
       queryDatabase(env, env.NOTION_DB_SPECIFICATIONS, {
         and: [
           { property: 'EntityType', select: { equals: entityType } },
@@ -38,10 +35,10 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
       }, [{ property: 'InspectionDate', direction: 'descending' }]),
     ])
 
-    if (!entityPages.length) return json(null, 404)
+    if (!entityPage) return json(null, 404)
 
     return json({
-      entity: entityMapper(entityPages[0]),
+      entity: entityMapper(entityPage),
       entityType,
       currentSpec: specPages.length ? pageToSpecification(specPages[0]) : null,
       recentPrices: pricePages.slice(0, 3).map(pageToPricingRecord),

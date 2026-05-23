@@ -12,6 +12,3 @@ compatibility_flags = ["nodejs_compat"]
 # NOTION_DB_PRICING = "database_id"
 # NOTION_DB_INSPECTIONS = "database_id"
 
-[[routes]]
-pattern = "/api/*"
-zone_name = ""
