@@ -34,7 +34,7 @@ export async function handlePricing(req: Request, env: Env, subpath: string): Pr
   // GET /api/pricing/allTrend
   if (subpath === '/allTrend') {
     const pages = await queryDatabase(env, env.NOTION_DB_PRICING, undefined, [
-      { property: 'PriceDate', direction: 'descending' }
+      { property: '詢價日期', direction: 'descending' }
     ])
     const records = pages.map(pageToPricingRecord)
     return json(calcTrend(records))
@@ -43,9 +43,9 @@ export async function handlePricing(req: Request, env: Env, subpath: string): Pr
   // GET /api/pricing/allEquipmentRecords
   if (subpath === '/allEquipmentRecords') {
     const pages = await queryDatabase(env, env.NOTION_DB_PRICING, {
-      property: 'EntityType',
+      property: '資料類型',
       select: { equals: 'equipment' }
-    }, [{ property: 'PriceDate', direction: 'descending' }])
+    }, [{ property: '詢價日期', direction: 'descending' }])
     return json(pages.map(pageToPricingRecord))
   }
 
@@ -53,13 +53,13 @@ export async function handlePricing(req: Request, env: Env, subpath: string): Pr
 
   const filter = {
     and: [
-      { property: 'EntityType', select: { equals: entityType } },
-      { property: 'EntityId', rich_text: { equals: entityId } },
+      { property: '資料類型', select: { equals: entityType } },
+      { property: '資料ID', rich_text: { equals: entityId } },
     ]
   }
 
   const pages = await queryDatabase(env, env.NOTION_DB_PRICING, filter, [
-    { property: 'PriceDate', direction: 'descending' }
+    { property: '詢價日期', direction: 'descending' }
   ])
   const records = pages.map(pageToPricingRecord)
 

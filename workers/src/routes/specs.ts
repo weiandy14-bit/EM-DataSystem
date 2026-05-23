@@ -10,17 +10,17 @@ export async function handleSpecs(req: Request, env: Env): Promise<Response> {
 
   const filter: any = {
     and: [
-      { property: 'EntityType', select: { equals: entityType } },
-      { property: 'EntityId', rich_text: { equals: entityId } },
+      { property: '資料類型', select: { equals: entityType } },
+      { property: '資料ID', rich_text: { equals: entityId } },
     ]
   }
 
   if (currentOnly) {
-    filter.and.push({ property: 'EffectiveTo', date: { is_empty: true } })
+    filter.and.push({ property: '失效日期', date: { is_empty: true } })
   }
 
   const pages = await queryDatabase(env, env.NOTION_DB_SPECIFICATIONS, filter, [
-    { property: 'EffectiveFrom', direction: 'descending' }
+    { property: '生效日期', direction: 'descending' }
   ])
 
   const specs = pages.map(pageToSpecification)

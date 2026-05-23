@@ -17,11 +17,11 @@ export async function handleMaterials(req: Request, env: Env, path: string): Pro
   const type = url.searchParams.get('type')
   const keyword = url.searchParams.get('keyword')
 
-  if (type) filters.push({ property: 'Type', select: { equals: type } })
+  if (type) filters.push({ property: '材料類別', select: { equals: type } })
   if (keyword) filters.push({
     or: [
-      { property: 'Name', title: { contains: keyword } },
-      { property: 'Supplier', rich_text: { contains: keyword } },
+      { property: '材料名稱', title: { contains: keyword } },
+      { property: '供應商', rich_text: { contains: keyword } },
     ]
   })
 
@@ -30,7 +30,7 @@ export async function handleMaterials(req: Request, env: Env, path: string): Pro
     : { and: filters }
 
   const pages = await queryDatabase(env, env.NOTION_DB_MATERIALS, filter, [
-    { property: 'Name', direction: 'ascending' }
+    { property: '材料名稱', direction: 'ascending' }
   ])
 
   return json(pages.map(pageToMaterial))

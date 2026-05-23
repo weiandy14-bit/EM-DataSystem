@@ -69,20 +69,20 @@ export function pageToEquipment(page: any) {
   const p = page.properties
   return {
     id: page.id,
-    name: getText(p.Name),
-    type: getSelect(p.Type),
-    model: getText(p.Model),
-    manufacturer: getText(p.Manufacturer),
-    installDate: getDate(p.InstallDate),
-    status: getSelect(p.Status) as 'active' | 'decommissioned',
-    location: getText(p.Location),
-    buildingCategory: getSelect(p.BuildingCategory),
-    publicWorkCode: getText(p.PublicWorkCode),
-    origin: getText(p.Origin),
-    specialItem: getText(p.SpecialItem),
-    agent: getText(p.Agent),
-    specDetail: getText(p.SpecDetail),
-    notes: getText(p.Notes),
+    name: getText(p['設備名稱']),
+    type: getSelect(p['設備類別']),
+    model: getText(p['型號']),
+    manufacturer: getText(p['廠牌']),
+    installDate: getDate(p['安裝日期']),
+    status: getSelect(p['狀態']) as 'active' | 'decommissioned',
+    location: getText(p['位置']),
+    buildingCategory: getSelect(p['建築類別']),
+    publicWorkCode: getText(p['公共工程編碼']),
+    origin: getText(p['產地']),
+    specialItem: getText(p['特殊項目']),
+    agent: getText(p['代理商']),
+    specDetail: getText(p['規格細項']),
+    notes: getText(p['備註']),
   }
 }
 
@@ -90,29 +90,29 @@ export function pageToMaterial(page: any) {
   const p = page.properties
   return {
     id: page.id,
-    name: getText(p.Name),
-    type: getSelect(p.Type),
-    grade: getText(p.Grade),
-    unit: getText(p.Unit),
-    supplier: getText(p.Supplier),
+    name: getText(p['材料名稱']),
+    type: getSelect(p['材料類別']),
+    grade: getText(p['等級規格']),
+    unit: getText(p['單位']),
+    supplier: getText(p['供應商']),
   }
 }
 
 export function pageToSpecification(page: any) {
   const p = page.properties
-  const specDataStr = getText(p.SpecData)
+  const specDataStr = getText(p['規格資料'])
   let specData: Record<string, string> = {}
   try { specData = JSON.parse(specDataStr) } catch { /* ignore */ }
   return {
     id: page.id,
-    entityType: getSelect(p.EntityType) as 'equipment' | 'material',
-    entityId: getText(p.EntityId),
-    entityName: getText(p.EntityName),
-    effectiveFrom: getDate(p.EffectiveFrom),
-    effectiveTo: getDate(p.EffectiveTo) || null,
+    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
+    entityId: getText(p['資料ID']),
+    entityName: getText(p['資料名稱']),
+    effectiveFrom: getDate(p['生效日期']),
+    effectiveTo: getDate(p['失效日期']) || null,
     specData,
-    versionLabel: getText(p.VersionLabel),
-    changeSummary: getText(p.ChangeSummary),
+    versionLabel: getText(p['版本標籤']),
+    changeSummary: getText(p['變更摘要']),
   }
 }
 
@@ -120,33 +120,33 @@ export function pageToPricingRecord(page: any) {
   const p = page.properties
   return {
     id: page.id,
-    entityType: getSelect(p.EntityType) as 'equipment' | 'material',
-    entityId: getText(p.EntityId),
-    entityName: getText(p.EntityName),
-    price: getNumber(p.Price),
-    priceDate: getDate(p.PriceDate),
-    supplier: getText(p.Supplier),
-    projectRef: getText(p.ProjectRef),
-    sourceType: getSelect(p.SourceType) as 'contract' | 'quote' | 'actual' | 'estimate',
-    notes: getText(p.Notes),
+    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
+    entityId: getText(p['資料ID']),
+    entityName: getText(p['資料名稱']),
+    price: getNumber(p['單價']),
+    priceDate: getDate(p['詢價日期']),
+    supplier: getText(p['供應商']),
+    projectRef: getText(p['案件工號']),
+    sourceType: getSelect(p['來源類型']) as 'contract' | 'quote' | 'actual' | 'estimate',
+    notes: getText(p['備註']),
   }
 }
 
 export function pageToInspectionRecord(page: any) {
   const p = page.properties
-  const snapshotStr = getText(p.SpecSnapshot)
+  const snapshotStr = getText(p['規格快照'])
   let specSnapshot: Record<string, string> = {}
   try { specSnapshot = JSON.parse(snapshotStr) } catch { /* ignore */ }
   return {
     id: page.id,
-    inspectionDate: getDate(p.InspectionDate),
-    entityType: getSelect(p.EntityType) as 'equipment' | 'material',
-    entityId: getText(p.EntityId),
-    entityName: getText(p.EntityName),
+    inspectionDate: getDate(p['驗收日期']),
+    entityType: getSelect(p['資料類型']) as 'equipment' | 'material',
+    entityId: getText(p['資料ID']),
+    entityName: getText(p['資料名稱']),
     specSnapshot,
-    priceAtInspection: getNumber(p.PriceAtInspection),
-    result: getSelect(p.Result) as 'pass' | 'fail' | 'conditional',
-    findings: getText(p.Findings),
-    inspector: getText(p.Inspector),
+    priceAtInspection: getNumber(p['驗收時單價']),
+    result: getSelect(p['驗收結果']) as 'pass' | 'fail' | 'conditional',
+    findings: getText(p['發現事項']),
+    inspector: getText(p['驗收人員']),
   }
 }
