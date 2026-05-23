@@ -1,0 +1,355 @@
+# Instincts generated from https://github.com/weiandy14-bit/EM-DataSystem
+# Generated: 2026-05-23T02:38:57.854Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: EM-DataSystem-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Commit Length
+
+## Action
+
+Write moderate-length commit messages (~55 characters)
+
+## Evidence
+
+- Average commit message length: 55 chars
+- Based on 2 commits
+
+---
+id: EM-DataSystem-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Naming Files
+
+## Action
+
+Use PascalCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: PascalCase
+
+---
+id: EM-DataSystem-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: EM-DataSystem-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: EM-DataSystem-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: 
+
+---
+id: EM-DataSystem-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/weiandy14-bit/EM-DataSystem
+---
+
+# EM DataSystem Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: em-datasystem-instinct-filename-pascalcase
+trigger: "When creating a new file in the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Filename Pascalcase
+
+## Action
+
+Name the file using PascalCase (e.g., MyComponent.tsx)
+
+## Evidence
+
+- Pattern in namingConventions.files: PascalCase
+
+---
+id: em-datasystem-instinct-function-camelcase
+trigger: "When defining a function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Function Camelcase
+
+## Action
+
+Use camelCase for the function name (e.g., fetchData)
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: em-datasystem-instinct-class-pascalcase
+trigger: "When defining a class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Class Pascalcase
+
+## Action
+
+Use PascalCase for the class name (e.g., DataManager)
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: em-datasystem-instinct-constant-screaming-snake-case
+trigger: "When declaring a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Constant Screaming Snake Case
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name (e.g., MAX_SIZE)
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: em-datasystem-instinct-import-relative
+trigger: "When importing modules within the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Import Relative
+
+## Action
+
+Use relative import paths (e.g., import X from '../X')
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: em-datasystem-instinct-export-mixed
+trigger: "When exporting modules or components"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Export Mixed
+
+## Action
+
+Use either named or default exports as appropriate
+
+## Evidence
+
+- Pattern in exportStyle: mixed
+
+---
+id: em-datasystem-instinct-typescript
+trigger: "When writing source code"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Typescript
+
+## Action
+
+Use TypeScript as the programming language
+
+## Evidence
+
+- Pattern in codeStyle.language: TypeScript
+
+---
+id: em-datasystem-instinct-frontend-folder
+trigger: "When adding frontend code"
+confidence: 0.9
+domain: architecture
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Frontend Folder
+
+## Action
+
+Place it inside the 'frontend' folder
+
+## Evidence
+
+- Pattern in commonFolders: frontend
+
+---
+id: em-datasystem-instinct-config-location-frontend
+trigger: "When adding or updating configuration files for the frontend"
+confidence: 0.9
+domain: architecture
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Config Location Frontend
+
+## Action
+
+Place config files (e.g., eslint, tsconfig, vite) inside the 'frontend' folder
+
+## Evidence
+
+- Pattern in configFiles: frontend/eslint.config.js, frontend/tsconfig.json, etc.
+
+---
+id: em-datasystem-instinct-test-separate
+trigger: "When adding tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Test Separate
+
+## Action
+
+Place tests in a separate location from source code
+
+## Evidence
+
+- Pattern in testLocation: separate
+
+---
+id: em-datasystem-instinct-commit-freeform
+trigger: "When writing a git commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Commit Freeform
+
+## Action
+
+Use a freeform message without a strict prefix, describing the change clearly
+
+## Evidence
+
+- Pattern in commits.type: freeform
+- Examples: 'Add React + Ant Design frontend (mock data, local preview)'
+
+---
+id: em-datasystem-instinct-commit-length
+trigger: "When composing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: weiandy14-bit/EM-DataSystem
+---
+
+# Em Datasystem Instinct Commit Length
+
+## Action
+
+Keep the commit message concise, around 55 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength: 55
+
