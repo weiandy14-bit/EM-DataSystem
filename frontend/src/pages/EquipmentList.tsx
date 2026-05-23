@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Button, Collapse, Checkbox, Select, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography } from 'antd'
+import { useState, useEffect } from 'react'
+import { Button, Collapse, Checkbox, Select, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message } from 'antd'
 import { FilterOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
+import { exportRef } from '../exportManager'
 
 const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修']
 
@@ -56,6 +57,48 @@ export default function EquipmentList() {
     setData(rows)
     setLoading(false)
   }
+
+  useEffect(() => {
+    exportRef.current = () => {
+      if (!data.length) {
+        message.warning('請先查詢資料後再匯出')
+        return
+      }
+      const rows = data.map((r, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${r.name}</td>
+          <td>${r.manufacturer} ${r.model}</td>
+          <td style="text-align:right">${r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'}</td>
+          <td>${r.inquiryYear != null ? r.inquiryYear + '年' : '—'}</td>
+          <td>${r.projectCode || '—'}</td>
+        </tr>`).join('')
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <title>設備查詢結果</title>
+        <style>
+          body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:24px;color:#222}
+          h2{font-size:16px;margin-bottom:4px}
+          .sub{font-size:12px;color:#888;margin-bottom:20px}
+          table{width:100%;border-collapse:collapse;font-size:13px}
+          th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+          td{padding:7px 10px;border-bottom:1px solid #e0e0e0}
+          tr:nth-child(even) td{background:#f7f9fc}
+          @media print{@page{margin:16mm}}
+        </style></head><body>
+        <h2>機電工程歷史數據管理系統 — 設備查詢結果</h2>
+        <div class="sub">匯出日期：${new Date().toLocaleDateString('zh-TW')}　共 ${data.length} 筆</div>
+        <table><thead><tr>
+          <th style="width:48px">項次</th><th>設備名稱</th><th>設備規格</th>
+          <th style="text-align:right">設備預算價</th><th>詢價年度</th><th>案件工號</th>
+        </tr></thead><tbody>${rows}</tbody></table>
+        <script>window.onload=()=>{window.print()}</script>
+        </body></html>`
+      const win = window.open('', '_blank')
+      win?.document.write(html)
+      win?.document.close()
+    }
+    return () => { exportRef.current = null }
+  }, [data])
 
   const openDetail = async (eq: EquipmentRow) => {
     setSelected(eq)
