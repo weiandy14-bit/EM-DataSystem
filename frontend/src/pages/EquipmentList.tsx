@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { Button, Collapse, Checkbox, Select, Input, Table, Drawer, Tabs, Tag, Badge, Space, Descriptions, Typography } from 'antd'
+import { Button, Collapse, Checkbox, Select, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography } from 'antd'
 import { FilterOutlined } from '@ant-design/icons'
 import { api } from '../api'
-import type { Equipment, Specification, PricingRecord, PriceTrend } from '../types'
+import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
-import PriceHistoryTable from '../components/PriceHistoryTable'
-import CostTrendChart from '../components/CostTrendChart'
 
 const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修']
 
@@ -30,7 +28,6 @@ export default function EquipmentList() {
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
   const [prices, setPrices] = useState<PricingRecord[]>([])
-  const [trend, setTrend] = useState<PriceTrend[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
   const handleConfirm = async () => {
@@ -63,14 +60,12 @@ export default function EquipmentList() {
   const openDetail = async (eq: EquipmentRow) => {
     setSelected(eq)
     setDetailLoading(true)
-    const [sp, pr, tr] = await Promise.all([
+    const [sp, pr] = await Promise.all([
       api.specs.list('equipment', eq.id),
       api.pricing.list('equipment', eq.id),
-      api.pricing.trend('equipment', eq.id),
     ])
     setSpecs(sp)
     setPrices(pr)
-    setTrend(tr)
     setDetailLoading(false)
   }
 
@@ -239,19 +234,14 @@ export default function EquipmentList() {
                 key: 'info',
                 label: '基本資料',
                 children: (
-                  <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+                  <Descriptions bordered size="small" column={1}>
+                    <Descriptions.Item label="公共工程編碼">{selected.publicWorkCode || '—'}</Descriptions.Item>
                     <Descriptions.Item label="建築類別">{selected.buildingCategory}</Descriptions.Item>
+                    <Descriptions.Item label="設備產地">{selected.origin || '—'}</Descriptions.Item>
                     <Descriptions.Item label="設備類別">{selected.type}</Descriptions.Item>
-                    <Descriptions.Item label="製造商">{selected.manufacturer}</Descriptions.Item>
-                    <Descriptions.Item label="型號">{selected.model}</Descriptions.Item>
-                    <Descriptions.Item label="安裝日期">{selected.installDate}</Descriptions.Item>
-                    <Descriptions.Item label="狀態">
-                      {selected.status === 'active'
-                        ? <Badge status="success" text="使用中" />
-                        : <Badge status="default" text="已停用" />}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="位置" span={2}>{selected.location}</Descriptions.Item>
-                    {selected.notes && <Descriptions.Item label="備註" span={2}>{selected.notes}</Descriptions.Item>}
+                    <Descriptions.Item label="特殊項目">{selected.specialItem || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="代理商">{selected.agent || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="規格細項">{selected.specDetail || '—'}</Descriptions.Item>
                   </Descriptions>
                 ),
               },
@@ -262,14 +252,27 @@ export default function EquipmentList() {
               },
               {
                 key: 'prices',
-                label: `費用記錄（${prices.length}筆）`,
+                label: `報價紀錄（${prices.length}筆）`,
                 children: (
-                  <div>
-                    <CostTrendChart data={trend} />
-                    <div style={{ marginTop: 16 }}>
-                      <PriceHistoryTable records={prices} />
-                    </div>
-                  </div>
+                  <Table
+                    size="small"
+                    dataSource={prices}
+                    rowKey="id"
+                    pagination={{ pageSize: 10, showSizeChanger: false }}
+                    columns={[
+                      { title: '日期', dataIndex: 'priceDate', key: 'date', width: 120 },
+                      {
+                        title: '金額（元）',
+                        dataIndex: 'price',
+                        key: 'price',
+                        render: (v: number) => (
+                          <span style={{ fontWeight: 600, color: '#1677ff' }}>
+                            {v.toLocaleString('zh-TW')}
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
                 ),
               },
             ]}

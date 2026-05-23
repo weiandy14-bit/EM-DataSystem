@@ -14,6 +14,11 @@ export interface Equipment {
   status: EquipmentStatus
   location: string
   buildingCategory: string
+  publicWorkCode: string
+  origin: string
+  specialItem: string
+  agent: string
+  specDetail: string
   notes: string
 }
 

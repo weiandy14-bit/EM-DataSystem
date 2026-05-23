@@ -1,15 +1,15 @@
 import type { Equipment, Material, Specification, PricingRecord, InspectionRecord } from '../types'
 
 export const mockEquipment: Equipment[] = [
-  { id: 'eq1', name: '變頻離心式冰水主機', type: '空調設備', model: 'YLAA0470', manufacturer: '約克', installDate: '2023-03-15', status: 'active', location: '台北辦公大樓A棟 B2機房', buildingCategory: '辦公大樓', notes: '' },
-  { id: 'eq2', name: '冷卻水塔', type: '空調設備', model: 'FRP-1000RT', manufacturer: '馬可尼', installDate: '2023-03-20', status: 'active', location: '台北辦公大樓A棟 屋頂', buildingCategory: '辦公大樓', notes: '' },
-  { id: 'eq3', name: '高壓氣體絕緣開關(GIS)', type: '電力設備', model: 'ZX2-17.5', manufacturer: 'ABB', installDate: '2023-01-10', status: 'active', location: '台北辦公大樓A棟 電機房', buildingCategory: '辦公大樓', notes: '' },
-  { id: 'eq4', name: '乾式變壓器', type: '電力設備', model: 'TR-2000KVA', manufacturer: '正昇', installDate: '2023-01-15', status: 'active', location: '台北辦公大樓A棟 電機房', buildingCategory: '商辦大樓', notes: '' },
-  { id: 'eq5', name: '緊急發電機', type: '電力設備', model: 'C1000D5', manufacturer: '康明斯', installDate: '2023-02-01', status: 'active', location: '台北辦公大樓A棟 B1', buildingCategory: 'Internet Data Center', notes: '含ATS' },
-  { id: 'eq6', name: '消防幫浦組', type: '消防設備', model: 'HSHD150', manufacturer: '荏原', installDate: '2023-04-01', status: 'active', location: '信義五星大飯店 B2消防室', buildingCategory: '五星旅館', notes: '含柴油備用泵' },
-  { id: 'eq7', name: '電梯', type: '電梯/電扶梯', model: 'NEXIEZ-MRL', manufacturer: '三菱', installDate: '2023-06-01', status: 'active', location: '信義五星大飯店', buildingCategory: '五星旅館', notes: '無機房型，共6台' },
-  { id: 'eq8', name: '門禁系統', type: '弱電系統', model: 'BioEntry', manufacturer: '台灣Suprema', installDate: '2022-08-01', status: 'active', location: '南港IDC機房 各樓層', buildingCategory: 'Internet Data Center', notes: '含軟體授權' },
-  { id: 'eq9', name: '空氣處理機', type: '空調設備', model: 'AHU-30000CMH', manufacturer: '約克', installDate: '2022-11-01', status: 'decommissioned', location: '二工裝修案-新竹廠辦', buildingCategory: '二工裝修', notes: '' },
+  { id: 'eq1', name: '變頻離心式冰水主機', type: '空調設備', model: 'YLAA0470', manufacturer: '約克', installDate: '2023-03-15', status: 'active', location: '台北辦公大樓A棟 B2機房', buildingCategory: '辦公大樓', publicWorkCode: 'ME-AC-001', origin: '美國', specialItem: '', agent: '欣達冷凍空調', specDetail: '1000RT，380V/60Hz，R513A冷媒', notes: '' },
+  { id: 'eq2', name: '冷卻水塔', type: '空調設備', model: 'FRP-1000RT', manufacturer: '馬可尼', installDate: '2023-03-20', status: 'active', location: '台北辦公大樓A棟 屋頂', buildingCategory: '辦公大樓', publicWorkCode: 'ME-AC-002', origin: '台灣', specialItem: '', agent: '', specDetail: 'FRP玻璃纖維材質，處理水量1000RT', notes: '' },
+  { id: 'eq3', name: '高壓氣體絕緣開關(GIS)', type: '電力設備', model: 'ZX2-17.5', manufacturer: 'ABB', installDate: '2023-01-10', status: 'active', location: '台北辦公大樓A棟 電機房', buildingCategory: '辦公大樓', publicWorkCode: 'ME-EL-001', origin: '瑞士', specialItem: 'SF6氣體絕緣', agent: '台灣ABB', specDetail: '17.5kV，630A，25kA', notes: '' },
+  { id: 'eq4', name: '乾式變壓器', type: '電力設備', model: 'TR-2000KVA', manufacturer: '正昇', installDate: '2023-01-15', status: 'active', location: '台北辦公大樓A棟 電機房', buildingCategory: '商辦大樓', publicWorkCode: 'ME-EL-002', origin: '台灣', specialItem: '', agent: '', specDetail: '2000KVA，22.8kV/0.48kV，H級絕緣', notes: '' },
+  { id: 'eq5', name: '緊急發電機', type: '電力設備', model: 'C1000D5', manufacturer: '康明斯', installDate: '2023-02-01', status: 'active', location: '台北辦公大樓A棟 B1', buildingCategory: 'Internet Data Center', publicWorkCode: 'ME-EL-003', origin: '美國', specialItem: '含ATS自動切換', agent: '康明斯台灣', specDetail: '1000kW，380V，含ATS', notes: '含ATS' },
+  { id: 'eq6', name: '消防幫浦組', type: '消防設備', model: 'HSHD150', manufacturer: '荏原', installDate: '2023-04-01', status: 'active', location: '信義五星大飯店 B2消防室', buildingCategory: '五星旅館', publicWorkCode: 'ME-FP-001', origin: '日本', specialItem: '含柴油備用泵', agent: '荏原台灣', specDetail: '150HP主泵，含柴油備用泵及試水泵', notes: '含柴油備用泵' },
+  { id: 'eq7', name: '電梯', type: '電梯/電扶梯', model: 'NEXIEZ-MRL', manufacturer: '三菱', installDate: '2023-06-01', status: 'active', location: '信義五星大飯店', buildingCategory: '五星旅館', publicWorkCode: 'ME-EV-001', origin: '日本', specialItem: '無機房型', agent: '台灣三菱電梯', specDetail: '無機房型，共6台，速度2.5m/s', notes: '無機房型，共6台' },
+  { id: 'eq8', name: '門禁系統', type: '弱電系統', model: 'BioEntry', manufacturer: '台灣Suprema', installDate: '2022-08-01', status: 'active', location: '南港IDC機房 各樓層', buildingCategory: 'Internet Data Center', publicWorkCode: 'ME-WE-001', origin: '韓國', specialItem: '', agent: '台灣Suprema', specDetail: '生物辨識門禁，含軟體授權及伺服器', notes: '含軟體授權' },
+  { id: 'eq9', name: '空氣處理機', type: '空調設備', model: 'AHU-30000CMH', manufacturer: '約克', installDate: '2022-11-01', status: 'decommissioned', location: '二工裝修案-新竹廠辦', buildingCategory: '二工裝修', publicWorkCode: 'ME-AC-009', origin: '美國', specialItem: '', agent: '欣達冷凍空調', specDetail: '30000CMH風量，含加熱/冷卻盤管', notes: '' },
 ]
 
 export const mockMaterials: Material[] = [
