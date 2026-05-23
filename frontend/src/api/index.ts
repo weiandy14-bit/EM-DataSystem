@@ -95,6 +95,10 @@ export const api = {
       await delay()
       return priceTrend(mockPricing)
     },
+    allEquipmentRecords: async (): Promise<PricingRecord[]> => {
+      await delay()
+      return mockPricing.filter(p => p.entityType === 'equipment')
+    },
   },
 
   inspection: {

@@ -12,16 +12,22 @@ const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'In
 const currentRocYear = new Date().getFullYear() - 1911
 const ROC_YEARS = Array.from({ length: currentRocYear - 99 }, (_, i) => 100 + i)
 
+type EquipmentRow = Equipment & {
+  budgetPrice: number | null
+  inquiryYear: number | null
+  projectCode: string
+}
+
 export default function EquipmentList() {
   const [selectedBuildings, setSelectedBuildings] = useState<string[]>([])
   const [yearStart, setYearStart] = useState<number | undefined>()
   const [yearEnd, setYearEnd] = useState<number | undefined>()
   const [equipmentName, setEquipmentName] = useState('')
-  const [data, setData] = useState<Equipment[]>([])
+  const [data, setData] = useState<EquipmentRow[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
 
-  const [selected, setSelected] = useState<Equipment>()
+  const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
   const [prices, setPrices] = useState<PricingRecord[]>([])
   const [trend, setTrend] = useState<PriceTrend[]>([])
@@ -30,17 +36,31 @@ export default function EquipmentList() {
   const handleConfirm = async () => {
     setLoading(true)
     setSearched(true)
-    const res = await api.equipment.list({
-      keyword: equipmentName || undefined,
-      buildingCategories: selectedBuildings.length ? selectedBuildings : undefined,
-      yearStart,
-      yearEnd,
+    const [eqList, allPricing] = await Promise.all([
+      api.equipment.list({
+        keyword: equipmentName || undefined,
+        buildingCategories: selectedBuildings.length ? selectedBuildings : undefined,
+        yearStart,
+        yearEnd,
+      }),
+      api.pricing.allEquipmentRecords(),
+    ])
+    const rows: EquipmentRow[] = eqList.map(eq => {
+      const latest = allPricing
+        .filter(p => p.entityId === eq.id)
+        .sort((a, b) => b.priceDate.localeCompare(a.priceDate))[0] ?? null
+      return {
+        ...eq,
+        budgetPrice: latest?.price ?? null,
+        inquiryYear: latest ? new Date(latest.priceDate).getFullYear() : null,
+        projectCode: latest?.projectRef ?? '',
+      }
     })
-    setData(res)
+    setData(rows)
     setLoading(false)
   }
 
-  const openDetail = async (eq: Equipment) => {
+  const openDetail = async (eq: EquipmentRow) => {
     setSelected(eq)
     setDetailLoading(true)
     const [sp, pr, tr] = await Promise.all([
@@ -56,45 +76,46 @@ export default function EquipmentList() {
 
   const columns = [
     {
+      title: '項次',
+      key: 'index',
+      width: 60,
+      render: (_: unknown, __: EquipmentRow, idx: number) => idx + 1,
+    },
+    {
       title: '設備名稱',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, r: Equipment) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{name}</div>
-          <div style={{ fontSize: 12, color: '#888' }}>{r.manufacturer}　{r.model}</div>
-        </div>
+    },
+    {
+      title: '設備規格',
+      key: 'spec',
+      render: (_: unknown, r: EquipmentRow) => (
+        <span>
+          <span style={{ fontWeight: 600 }}>{r.manufacturer}</span>
+          <span style={{ color: '#888', marginLeft: 6 }}>{r.model}</span>
+        </span>
       ),
     },
     {
-      title: '建築類別',
-      dataIndex: 'buildingCategory',
-      key: 'buildingCategory',
-      width: 150,
-      render: (v: string) => <Tag color="blue">{v}</Tag>,
+      title: '設備預算價',
+      key: 'price',
+      render: (_: unknown, r: EquipmentRow) =>
+        r.budgetPrice != null
+          ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span>
+          : <span style={{ color: '#ccc' }}>—</span>,
     },
     {
-      title: '設備類別',
-      dataIndex: 'type',
-      key: 'type',
-      width: 120,
-      responsive: ['md' as const],
+      title: '詢價年度',
+      key: 'year',
+      width: 100,
+      render: (_: unknown, r: EquipmentRow) =>
+        r.inquiryYear != null ? `${r.inquiryYear}年` : <span style={{ color: '#ccc' }}>—</span>,
     },
     {
-      title: '安裝日期',
-      dataIndex: 'installDate',
-      key: 'installDate',
-      width: 110,
-      responsive: ['lg' as const],
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 90,
-      render: (v: string) => v === 'active'
-        ? <Badge status="success" text="使用中" />
-        : <Badge status="default" text="已停用" />,
+      title: '案件工號',
+      key: 'project',
+      render: (_: unknown, r: EquipmentRow) =>
+        r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
     },
   ]
 
@@ -183,7 +204,7 @@ export default function EquipmentList() {
         ) : (
           <>
             <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-              共 {data.length} 筆設備，點擊列可查看規格與費用詳情
+              共 {data.length} 筆，點擊列可查看規格與費用詳情
             </Typography.Text>
             <Table
               dataSource={data}
@@ -198,7 +219,7 @@ export default function EquipmentList() {
         )}
       </div>
 
-      {/* 詳情抽屜：設備資料 + 規格 + 費用 */}
+      {/* 詳情抽屜 */}
       <Drawer
         title={
           <span>
