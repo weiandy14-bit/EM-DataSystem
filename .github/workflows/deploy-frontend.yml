@@ -3,9 +3,7 @@ name: Deploy Frontend
 on:
   push:
     branches: [main]
-    paths:
-      - 'frontend/**'
-      - 'wrangler.toml'
+  workflow_dispatch:
 
 jobs:
   deploy:
