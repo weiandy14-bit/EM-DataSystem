@@ -112,7 +112,6 @@ export function pageToSpecification(page: any) {
     id: page.id,
     entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
     entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
-    entityName: getText(p['資料名稱']),
     effectiveFrom: getDate(p['生效日期']),
     effectiveTo: getDate(p['失效日期']) || null,
     specData,
@@ -128,7 +127,6 @@ export function pageToPricingRecord(page: any) {
     id: page.id,
     entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
     entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
-    entityName: getText(p['資料名稱']),
     price: getNumber(p['單價']),
     priceDate: getDate(p['詢價日期']),
     supplier: getText(p['供應商']),
@@ -141,17 +139,12 @@ export function pageToPricingRecord(page: any) {
 export function pageToInspectionRecord(page: any) {
   const p = page.properties
   const hasEquipment = (p['設備']?.relation?.length ?? 0) > 0
-  const snapshotStr = getText(p['規格快照'])
-  let specSnapshot: Record<string, string> = {}
-  try { specSnapshot = JSON.parse(snapshotStr) } catch { /* ignore */ }
   return {
     id: page.id,
     inspectionDate: getDate(p['驗收日期']),
     entityType: (hasEquipment ? 'equipment' : 'material') as 'equipment' | 'material',
     entityId: hasEquipment ? getRelationId(p['設備']) : getRelationId(p['材料']),
     entityName: getText(p['資料名稱']),
-    specSnapshot,
-    priceAtInspection: getNumber(p['驗收時單價']),
     result: getSelect(p['驗收結果']) as 'pass' | 'fail' | 'conditional',
     findings: getText(p['發現事項']),
     inspector: getText(p['驗收人員']),
