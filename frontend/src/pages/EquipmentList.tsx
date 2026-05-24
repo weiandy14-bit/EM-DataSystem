@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined } from '@ant-design/icons'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
@@ -11,6 +11,8 @@ const currentRocYear = new Date().getFullYear() - 1911
 const ROC_YEARS = Array.from({ length: currentRocYear - 99 }, (_, i) => 100 + i)
 const LAST_SEARCH_KEY = 'em_last_search'
 const SEARCH_HISTORY_KEY = 'em_search_history'
+const COLUMN_ORDER_KEY = 'em_column_order'
+const DRAGGABLE_COL_KEYS = ['name', 'spec', 'price', 'year', 'project'] as const
 
 type EquipmentRow = Equipment & {
   budgetPrice: number | null
@@ -65,6 +67,49 @@ export default function EquipmentList() {
   const [specs, setSpecs] = useState<Specification[]>([])
   const [prices, setPrices] = useState<PricingRecord[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_ORDER_KEY)
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved)
+        const valid = [...DRAGGABLE_COL_KEYS].filter(k => parsed.includes(k))
+        const missing = [...DRAGGABLE_COL_KEYS].filter(k => !parsed.includes(k))
+        return [...valid.sort((a, b) => parsed.indexOf(a) - parsed.indexOf(b)), ...missing]
+      }
+    } catch {}
+    return [...DRAGGABLE_COL_KEYS]
+  })
+  const dragColKey = useRef<string | null>(null)
+
+  const colDragProps = (key: string) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent<HTMLTableCellElement>) => {
+      dragColKey.current = key
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    onDragOver: (e: React.DragEvent<HTMLTableCellElement>) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+    },
+    onDrop: (e: React.DragEvent<HTMLTableCellElement>) => {
+      e.preventDefault()
+      const from = dragColKey.current
+      if (!from || from === key) return
+      setColumnOrder(prev => {
+        const next = [...prev]
+        const fi = next.indexOf(from)
+        const ti = next.indexOf(key)
+        if (fi < 0 || ti < 0) return prev
+        next.splice(fi, 1)
+        next.splice(ti, 0, from)
+        localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(next))
+        return next
+      })
+      dragColKey.current = null
+    },
+    style: { cursor: 'grab', userSelect: 'none' as const },
+  })
 
   const runSearch = async (params: SavedSearch) => {
     setLoading(true)
@@ -221,14 +266,19 @@ export default function EquipmentList() {
     setDetailLoading(false)
   }
 
-  const columns = [
-    { title: '項次', key: 'index', width: 60, render: (_: unknown, __: EquipmentRow, idx: number) => idx + 1 },
-    {
-      title: '設備名稱', dataIndex: 'name', key: 'name',
+  const draggableTitle = (label: string) => (
+    <span><HolderOutlined style={{ marginRight: 5, color: '#bbb', fontSize: 11 }} />{label}</span>
+  )
+
+  const allColumns: Record<string, object> = {
+    name: {
+      title: draggableTitle('設備名稱'), dataIndex: 'name', key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
+      onHeaderCell: () => colDragProps('name'),
     },
-    {
-      title: '設備規格', key: 'spec',
+    spec: {
+      title: draggableTitle('設備規格'), key: 'spec',
+      onHeaderCell: () => colDragProps('spec'),
       render: (_: unknown, r: EquipmentRow) => (
         <span>
           <span style={{ fontWeight: 600 }}>{r.manufacturer}</span>
@@ -236,23 +286,31 @@ export default function EquipmentList() {
         </span>
       ),
     },
-    {
-      title: '設備預算價', key: 'price',
+    price: {
+      title: draggableTitle('設備預算價'), key: 'price',
       sorter: (a: EquipmentRow, b: EquipmentRow) => (a.budgetPrice ?? -1) - (b.budgetPrice ?? -1),
+      onHeaderCell: () => colDragProps('price'),
       render: (_: unknown, r: EquipmentRow) => r.budgetPrice != null
         ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span>
         : <span style={{ color: '#ccc' }}>—</span>,
     },
-    {
-      title: '詢價年度', key: 'year', width: 100,
+    year: {
+      title: draggableTitle('詢價年度'), key: 'year', width: 100,
       sorter: (a: EquipmentRow, b: EquipmentRow) => (a.inquiryYear ?? 0) - (b.inquiryYear ?? 0),
+      onHeaderCell: () => colDragProps('year'),
       render: (_: unknown, r: EquipmentRow) =>
         r.inquiryYear != null ? `${r.inquiryYear}年` : <span style={{ color: '#ccc' }}>—</span>,
     },
-    {
-      title: '案件工號', key: 'project',
+    project: {
+      title: draggableTitle('案件工號'), key: 'project',
+      onHeaderCell: () => colDragProps('project'),
       render: (_: unknown, r: EquipmentRow) => r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
     },
+  }
+
+  const columns = [
+    { title: '項次', key: 'index', width: 60, render: (_: unknown, __: EquipmentRow, idx: number) => idx + 1 },
+    ...columnOrder.map(k => allColumns[k]).filter(Boolean),
     {
       title: '', key: 'copy', width: 40,
       render: (_: unknown, r: EquipmentRow) => (
