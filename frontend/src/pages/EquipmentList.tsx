@@ -153,7 +153,17 @@ export default function EquipmentList() {
     setLoading(false)
   }
 
-  const handleConfirm = () => runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName })
+  const handleConfirm = () => {
+    if (!yearStart || !yearEnd) {
+      message.warning('請選擇年度起訖範圍（起始與結束年度都需填寫）')
+      return
+    }
+    if (!equipmentName.trim()) {
+      message.warning('請輸入設備名稱')
+      return
+    }
+    runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName })
+  }
   const applyHistory = (item: HistoryItem) => runSearch(item.params)
   const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
 
