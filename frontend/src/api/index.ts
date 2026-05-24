@@ -25,7 +25,7 @@ async function get<T>(path: string, params?: Record<string, string | string[] | 
       else url.searchParams.set(k, v)
     }
   }
-  const token = localStorage.getItem('em_auth_token')
+  const token = sessionStorage.getItem('em_auth_token')
   const headers: Record<string, string> = {}
   if (token) headers['Authorization'] = `Bearer ${token}`
   const res = await fetch(url.toString(), { headers })

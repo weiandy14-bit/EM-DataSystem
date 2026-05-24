@@ -41,7 +41,7 @@ function saveMockUsers(users: StoredUser[]) {
 // ---- production helpers ----
 
 function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
 async function authFetch(path: string, options?: RequestInit): Promise<Response> {
@@ -73,8 +73,8 @@ export async function login(username: string, password: string): Promise<AuthUse
     })
     if (!res.ok) return null
     const data = await res.json() as { token: string; username: string; role: Role }
-    localStorage.setItem(TOKEN_KEY, data.token)
-    localStorage.setItem(CURRENT_KEY, JSON.stringify({ username: data.username, role: data.role }))
+    sessionStorage.setItem(TOKEN_KEY, data.token)
+    sessionStorage.setItem(CURRENT_KEY, JSON.stringify({ username: data.username, role: data.role }))
     return { username: data.username, role: data.role }
   } catch {
     return null
@@ -89,8 +89,8 @@ export async function logout(): Promise<void> {
   try {
     await authFetch('/auth/logout', { method: 'POST' })
   } catch { /* ignore */ }
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(CURRENT_KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(CURRENT_KEY)
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
@@ -103,17 +103,17 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
   }
   const token = getToken()
-  const cached = localStorage.getItem(CURRENT_KEY)
+  const cached = sessionStorage.getItem(CURRENT_KEY)
   if (!token) return null
   try {
     const res = await authFetch('/auth/me')
     if (!res.ok) {
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(CURRENT_KEY)
+      sessionStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(CURRENT_KEY)
       return null
     }
     const data = await res.json() as AuthUser
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(data))
+    sessionStorage.setItem(CURRENT_KEY, JSON.stringify(data))
     return data
   } catch {
     // Network error: use locally cached user if available
