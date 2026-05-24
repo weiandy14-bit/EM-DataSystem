@@ -16,4 +16,4 @@ NOTION_DB_INSPECTIONS    = "3690d834d60e816a9759c2297a7805eb"
 # Then replace the id below with the returned ID
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "REPLACE_WITH_KV_ID"
+id = "5d43a09ec41c4bc08c940d0964ca8759"
