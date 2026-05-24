@@ -1,27 +1,27 @@
-import { queryDatabase, pageToMaterial, type Env } from '../notion'
+import { queryDatabase, getPage, pageToMaterial, type Env } from '../notion'
 
 export async function handleMaterials(req: Request, env: Env, path: string): Promise<Response> {
   const url = new URL(req.url)
   const id = path.replace('/api/materials', '').replace(/^\//, '')
 
   if (id) {
-    const pages = await queryDatabase(env, env.NOTION_DB_MATERIALS, {
-      property: 'ID',
-      rich_text: { equals: id },
-    })
-    if (!pages.length) return json(null, 404)
-    return json(pageToMaterial(pages[0]))
+    try {
+      const page = await getPage(env, id)
+      return json(pageToMaterial(page))
+    } catch {
+      return json(null, 404)
+    }
   }
 
   const filters: any[] = []
   const type = url.searchParams.get('type')
   const keyword = url.searchParams.get('keyword')
 
-  if (type) filters.push({ property: 'Type', select: { equals: type } })
+  if (type) filters.push({ property: '材料類別', select: { equals: type } })
   if (keyword) filters.push({
     or: [
-      { property: 'Name', title: { contains: keyword } },
-      { property: 'Supplier', rich_text: { contains: keyword } },
+      { property: '材料名稱', title: { contains: keyword } },
+      { property: '供應商', rich_text: { contains: keyword } },
     ]
   })
 
@@ -30,7 +30,7 @@ export async function handleMaterials(req: Request, env: Env, path: string): Pro
     : { and: filters }
 
   const pages = await queryDatabase(env, env.NOTION_DB_MATERIALS, filter, [
-    { property: 'Name', direction: 'ascending' }
+    { property: '材料名稱', direction: 'ascending' }
   ])
 
   return json(pages.map(pageToMaterial))

@@ -8,18 +8,16 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = ({ username, password }: { username: string; password: string }) => {
+  const handleSubmit = async ({ username, password }: { username: string; password: string }) => {
     setLoading(true)
     setError(false)
-    setTimeout(() => {
-      const user = login(username, password)
-      if (user) {
-        onLogin(user)
-      } else {
-        setError(true)
-      }
-      setLoading(false)
-    }, 300)
+    const user = await login(username, password)
+    if (user) {
+      onLogin(user)
+    } else {
+      setError(true)
+    }
+    setLoading(false)
   }
 
   return (

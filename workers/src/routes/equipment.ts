@@ -1,4 +1,4 @@
-import { queryDatabase, pageToEquipment, type Env } from '../notion'
+import { queryDatabase, getPage, pageToEquipment, type Env } from '../notion'
 
 export async function handleEquipment(req: Request, env: Env, path: string): Promise<Response> {
   const url = new URL(req.url)
@@ -6,12 +6,12 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (id) {
     // GET /api/equipment/:id
-    const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, {
-      property: 'ID',
-      rich_text: { equals: id },
-    })
-    if (!pages.length) return json(null, 404)
-    return json(pageToEquipment(pages[0]))
+    try {
+      const page = await getPage(env, id)
+      return json(pageToEquipment(page))
+    } catch {
+      return json(null, 404)
+    }
   }
 
   // GET /api/equipment?type=&status=&keyword=&buildingCategories=&yearStart=&yearEnd=
@@ -23,18 +23,18 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  if (type) filters.push({ property: 'Type', select: { equals: type } })
-  if (status) filters.push({ property: 'Status', select: { equals: status } })
+  if (type) filters.push({ property: '設備類別', select: { equals: type } })
+  if (status) filters.push({ property: '狀態', select: { equals: status } })
   if (keyword) filters.push({
     or: [
-      { property: 'Name', title: { contains: keyword } },
-      { property: 'Manufacturer', rich_text: { contains: keyword } },
-      { property: 'Model', rich_text: { contains: keyword } },
+      { property: '設備名稱', title: { contains: keyword } },
+      { property: '廠牌', rich_text: { contains: keyword } },
+      { property: '型號', rich_text: { contains: keyword } },
     ]
   })
   if (buildingCategories.length) {
     filters.push({
-      or: buildingCategories.map(c => ({ property: 'BuildingCategory', select: { equals: c } }))
+      or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
 
@@ -43,7 +43,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
     : { and: filters }
 
   const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, filter, [
-    { property: 'Name', direction: 'ascending' }
+    { property: '設備名稱', direction: 'ascending' }
   ])
 
   let items = pages.map(pageToEquipment)

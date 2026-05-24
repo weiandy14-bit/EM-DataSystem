@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Table, Button, Form, Input, Modal, Popconfirm, Typography, Space, Tag, message } from 'antd'
 import { PlusOutlined, DeleteOutlined, TeamOutlined } from '@ant-design/icons'
 import { listUsers, addUser, removeUser } from '../auth'
 import type { AuthUser } from '../auth'
 
 export default function UserManagement() {
-  const [users, setUsers] = useState<AuthUser[]>(listUsers)
+  const [users, setUsers] = useState<AuthUser[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [form] = Form.useForm()
 
-  const refresh = () => setUsers(listUsers())
+  const refresh = async () => setUsers(await listUsers())
 
-  const handleAdd = ({ username, password }: { username: string; password: string }) => {
-    const ok = addUser(username, password)
+  useEffect(() => { refresh() }, [])
+
+  const handleAdd = async ({ username, password }: { username: string; password: string }) => {
+    const ok = await addUser(username, password)
     if (ok) {
       message.success(`使用者「${username}」新增成功`)
       form.resetFields()
@@ -23,8 +25,8 @@ export default function UserManagement() {
     }
   }
 
-  const handleDelete = (username: string) => {
-    removeUser(username)
+  const handleDelete = async (username: string) => {
+    await removeUser(username)
     message.success(`已刪除使用者「${username}」`)
     refresh()
   }

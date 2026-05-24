@@ -3,6 +3,9 @@ name: Deploy Frontend
 on:
   push:
     branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
 jobs:
@@ -15,14 +18,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build frontend
-        run: cd frontend && npm install && npm run build
-        env:
-          VITE_API_BASE: https://em-datasystem-api.weiandy14.workers.dev/api
-          VITE_USE_MOCK: false
+      - name: Install dependencies
+        run: cd frontend && npm install
 
-      - name: Deploy to Cloudflare Workers
-        run: npx wrangler deploy
+      - name: Build
+        run: cd frontend && npm run build
+        env:
+          VITE_USE_MOCK: 'false'
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy frontend/dist --project-name em-datasystem
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

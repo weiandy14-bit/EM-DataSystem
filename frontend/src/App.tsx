@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
-import { Layout, Typography, Button, Space, Tag, Modal } from 'antd'
+import { Layout, Typography, Button, Space, Tag, Modal, Spin } from 'antd'
 import { FilePdfOutlined, LogoutOutlined, TeamOutlined } from '@ant-design/icons'
 import EquipmentList from './pages/EquipmentList'
 import Login from './pages/Login'
@@ -21,8 +21,8 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
       okText: '登出',
       cancelText: '取消',
       okButtonProps: { danger: true },
-      onOk: () => {
-        logout()
+      onOk: async () => {
+        await logout()
         window.history.replaceState(null, '', '/')
         onLogout()
       },
@@ -81,7 +81,23 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
 }
 
 export default function App() {
-  const [user, setUser] = useState<AuthUser | null>(getCurrentUser)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    getCurrentUser().then(u => {
+      setUser(u)
+      setChecking(false)
+    })
+  }, [])
+
+  if (checking) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" />
+      </div>
+    )
+  }
 
   if (!user) return <Login onLogin={setUser} />
 

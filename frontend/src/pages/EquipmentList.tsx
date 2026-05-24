@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined } from '@ant-design/icons'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
@@ -25,11 +25,26 @@ interface SavedSearch {
   name: string
 }
 
+interface HistoryItem {
+  id: string
+  label: string
+  params: SavedSearch
+}
+
+function buildLabel(p: SavedSearch): string {
+  const parts: string[] = []
+  if (p.name) parts.push(p.name)
+  if (p.buildings.length) parts.push(p.buildings.join('、'))
+  const yr = [p.yearStart ? String(p.yearStart) : '', p.yearEnd ? String(p.yearEnd) : ''].filter(Boolean).join('～')
+  if (yr) parts.push(`民國${yr}年`)
+  return parts.join(' · ') || '全部設備'
+}
+
 function loadLastSearch(): SavedSearch | null {
   try { return JSON.parse(localStorage.getItem(LAST_SEARCH_KEY) || 'null') } catch { return null }
 }
 
-function loadSearchHistory(): string[] {
+function loadSearchHistory(): HistoryItem[] {
   try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]') } catch { return [] }
 }
 
@@ -39,7 +54,7 @@ export default function EquipmentList() {
   const [yearStart, setYearStart] = useState<number | undefined>(last?.yearStart)
   const [yearEnd, setYearEnd] = useState<number | undefined>(last?.yearEnd)
   const [equipmentName, setEquipmentName] = useState(last?.name ?? '')
-  const [searchHistory, setSearchHistory] = useState<string[]>(loadSearchHistory)
+  const [searchHistory, setSearchHistory] = useState<HistoryItem[]>(loadSearchHistory)
   const [data, setData] = useState<EquipmentRow[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -51,25 +66,29 @@ export default function EquipmentList() {
   const [prices, setPrices] = useState<PricingRecord[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const handleConfirm = async () => {
+  const runSearch = async (params: SavedSearch) => {
     setLoading(true)
     setSearched(true)
     setSelectedKeys([])
+    setSelectedBuildings(params.buildings)
+    setYearStart(params.yearStart)
+    setYearEnd(params.yearEnd)
+    setEquipmentName(params.name)
 
-    localStorage.setItem(LAST_SEARCH_KEY, JSON.stringify({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName }))
+    localStorage.setItem(LAST_SEARCH_KEY, JSON.stringify(params))
 
-    if (equipmentName.trim()) {
-      const history = [equipmentName, ...searchHistory.filter(h => h !== equipmentName)].slice(0, 5)
-      setSearchHistory(history)
-      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history))
-    }
+    const label = buildLabel(params)
+    const newItem: HistoryItem = { id: Date.now().toString(), label, params }
+    const newHistory = [newItem, ...searchHistory.filter(h => h.label !== label)].slice(0, 5)
+    setSearchHistory(newHistory)
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
 
     const [eqList, allPricing] = await Promise.all([
       api.equipment.list({
-        keyword: equipmentName || undefined,
-        buildingCategories: selectedBuildings.length ? selectedBuildings : undefined,
-        yearStart,
-        yearEnd,
+        keyword: params.name || undefined,
+        buildingCategories: params.buildings.length ? params.buildings : undefined,
+        yearStart: params.yearStart,
+        yearEnd: params.yearEnd,
       }),
       api.pricing.allEquipmentRecords(),
     ])
@@ -88,6 +107,10 @@ export default function EquipmentList() {
     setData(rows)
     setLoading(false)
   }
+
+  const handleConfirm = () => runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName })
+  const applyHistory = (item: HistoryItem) => runSearch(item.params)
+  const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
 
   const priced = data.filter(r => r.budgetPrice != null)
   const statsMax = priced.length ? Math.max(...priced.map(r => r.budgetPrice!)) : null
@@ -263,8 +286,9 @@ export default function EquipmentList() {
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
-      {/* 左欄：篩選面板 */}
-      <div style={{ width: 220, flexShrink: 0, background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '16px 12px' }}>
+      {/* 左欄：篩選面板 + 查詢歷史 */}
+      <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '16px 12px' }}>
         <Button type="primary" block style={{ marginBottom: 16, fontWeight: 600 }} onClick={handleConfirm}>
           確定查詢
         </Button>
@@ -305,7 +329,7 @@ export default function EquipmentList() {
             label: <span style={{ fontWeight: 600 }}>設備名稱</span>,
             children: (
               <AutoComplete style={{ width: '100%' }}
-                options={searchHistory.map(h => ({ value: h }))}
+                options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
                 value={equipmentName} onChange={setEquipmentName}
                 filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
                 <Input placeholder="模糊搜尋…" onPressEnter={handleConfirm} />
@@ -313,6 +337,36 @@ export default function EquipmentList() {
             ),
           },
         ]} />
+      </div>
+
+      {/* 查詢歷史 */}
+      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', padding: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontWeight: 600, fontSize: 13, color: '#333' }}>
+            <HistoryOutlined style={{ marginRight: 6 }} />查詢歷史
+          </span>
+          {searchHistory.length > 0 && (
+            <Button size="small" type="text" danger onClick={clearHistory}>清除</Button>
+          )}
+        </div>
+        {searchHistory.length === 0 ? (
+          <div style={{ color: '#bbb', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>尚無查詢記錄</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {searchHistory.map(item => (
+              <div
+                key={item.id}
+                onClick={() => applyHistory(item)}
+                style={{ padding: '6px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, color: '#444', background: '#f8f9fa', border: '1px solid #eee', lineHeight: 1.5, wordBreak: 'break-all', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#e6f4ff')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#f8f9fa')}
+              >
+                {item.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       </div>
 
       {/* 右欄：查詢結果 */}
