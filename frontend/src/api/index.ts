@@ -25,7 +25,10 @@ async function get<T>(path: string, params?: Record<string, string | string[] | 
       else url.searchParams.set(k, v)
     }
   }
-  const res = await fetch(url.toString())
+  const token = localStorage.getItem('em_auth_token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(url.toString(), { headers })
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
   return res.json()
 }

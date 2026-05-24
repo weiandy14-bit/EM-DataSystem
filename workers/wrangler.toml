@@ -10,3 +10,10 @@ NOTION_DB_SPECIFICATIONS = "3690d834d60e8139b68dc600f5bc1653"
 NOTION_DB_PRICING        = "3690d834d60e819eb135dbf929e02c79"
 NOTION_DB_INSPECTIONS    = "3690d834d60e816a9759c2297a7805eb"
 # NOTION_TOKEN is a Secret — set via: wrangler secret put NOTION_TOKEN
+
+# KV namespace for auth (users + sessions)
+# Create with: wrangler kv:namespace create AUTH_KV
+# Then replace the id below with the returned ID
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "REPLACE_WITH_KV_ID"

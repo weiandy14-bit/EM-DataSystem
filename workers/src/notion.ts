@@ -5,6 +5,7 @@ export interface Env {
   NOTION_DB_SPECIFICATIONS: string
   NOTION_DB_PRICING: string
   NOTION_DB_INSPECTIONS: string
+  AUTH_KV: KVNamespace
 }
 
 const NOTION_VERSION = '2022-06-28'
