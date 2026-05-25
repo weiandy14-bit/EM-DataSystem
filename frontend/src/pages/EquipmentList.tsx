@@ -221,10 +221,14 @@ export default function EquipmentList() {
   }
 
   const handleCopyRow = (r: EquipmentRow) => {
-    const text = [r.name, `${r.manufacturer} ${r.model}`,
-      r.budgetPrice != null ? `$${r.budgetPrice.toLocaleString('zh-TW')}` : '—',
-      r.inquiryYear != null ? `${r.inquiryYear}年` : '—',
-      r.projectCode || '—'].join('\t')
+    const colValues: Record<string, string> = {
+      name: r.name,
+      spec: `${r.manufacturer} ${r.model}`,
+      price: r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—',
+      year: r.inquiryYear != null ? `${r.inquiryYear}年` : '—',
+      project: r.projectCode || '—',
+    }
+    const text = columnOrder.map(k => colValues[k]).join('\t')
     navigator.clipboard.writeText(text).then(() => message.success('已複製到剪貼板'))
   }
 
