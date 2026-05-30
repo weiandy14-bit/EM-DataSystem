@@ -336,20 +336,69 @@ export default function EquipmentList() {
     },
   ]
 
+  const compareFields: { key: string; label: string }[] = [
+    { key: 'name', label: '設備名稱' },
+    { key: 'manufacturer', label: '廠牌' },
+    { key: 'origin', label: '產地' },
+    { key: 'model', label: '型號' },
+    { key: 'budgetPrice', label: '設備預算價（元）' },
+    { key: 'specDetail', label: '規格細項' },
+  ]
+
+  const handleCopyCompare = () => {
+    const header = ['項目', ...selectedRows.map((_, i) => `廠商 ${i + 1}`)].join('\t')
+    const rows = compareFields.map(f => {
+      const vals = selectedRows.map(r => {
+        if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+        return map[f.key] ?? '—'
+      })
+      return [f.label, ...vals].join('\t')
+    })
+    navigator.clipboard.writeText([header, ...rows].join('\n')).then(() => message.success('已複製，可直接貼入 Excel'))
+  }
+
+  const handlePrintCompare = () => {
+    const trs = compareFields.map(f => {
+      const vals = selectedRows.map(r => {
+        if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+        return `<td>${map[f.key] ?? '—'}</td>`
+      }).join('')
+      return `<tr><td class="label">${f.label}</td>${vals}</tr>`
+    }).join('')
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>規格比較</title>
+      <style>body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:24px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#1F4E79;color:#fff;padding:10px 12px;text-align:center}
+      td{padding:9px 12px;border:1px solid #ddd;vertical-align:top}
+      .label{font-weight:600;background:#f0f4f8;width:120px}
+      @media print{@page{margin:16mm}}</style></head><body>
+      <h2 style="color:#1F4E79">機電工程設備規格比較表</h2>
+      <div style="font-size:12px;color:#888;margin-bottom:16px">製表日期：${new Date().toLocaleDateString('zh-TW')}</div>
+      <table><thead><tr><th>項目</th>${selectedRows.map((_, i) => `<th>廠商 ${i + 1}</th>`).join('')}</tr></thead>
+      <tbody>${trs}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>`
+    const win = window.open('', '_blank')
+    win?.document.write(html)
+    win?.document.close()
+  }
+
   const compareColumns = [
-    { title: '項目', dataIndex: 'label', key: 'label', width: 110, render: (v: string) => <strong>{v}</strong> },
+    { title: '項目', dataIndex: 'label', key: 'label', width: 120, render: (v: string) => <strong>{v}</strong> },
     ...selectedRows.map((r, i) => ({
       title: `廠商 ${i + 1}`,
       key: r.id,
       render: (row: { key: string }) => {
         if (row.key === 'budgetPrice') return r.budgetPrice != null
           ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span> : '—'
-        if (row.key === 'inquiryYear') return r.inquiryYear != null ? `${r.inquiryYear}年` : '—'
-        const map: Record<string, string> = {
-          name: r.name, manufacturer: r.manufacturer, model: r.model,
-          origin: r.origin || '—', type: r.type,
-          buildingCategory: r.buildingCategory, specDetail: r.specDetail || '—',
+        if (row.key === 'specDetail') {
+          const parts = (r.specDetail || '—').split(/[、\n,，]/).map(s => s.trim()).filter(Boolean)
+          return parts.length > 1
+            ? <ul style={{ margin: 0, paddingLeft: 16 }}>{parts.map((p, j) => <li key={j}>{p}</li>)}</ul>
+            : <span>{parts[0] || '—'}</span>
         }
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—' }
         return map[row.key] ?? '—'
       },
     })),
@@ -556,21 +605,18 @@ export default function EquipmentList() {
       {/* 比較規格 Modal */}
       <Modal
         title={`比較規格（${selectedRows.length} 筆）`}
-        open={compareOpen} onCancel={() => setCompareOpen(false)} footer={null}
+        open={compareOpen} onCancel={() => setCompareOpen(false)}
         width={Math.min(200 + selectedRows.length * 240, 900)}
+        footer={
+          <Space>
+            <Button onClick={handleCopyCompare}>複製（貼入 Excel）</Button>
+            <Button onClick={handlePrintCompare}>列印</Button>
+            <Button type="primary" onClick={() => setCompareOpen(false)}>關閉</Button>
+          </Space>
+        }
       >
         <Table size="small" pagination={false}
-          dataSource={[
-            { key: 'name', label: '設備名稱' },
-            { key: 'manufacturer', label: '廠牌' },
-            { key: 'model', label: '型號' },
-            { key: 'origin', label: '產地' },
-            { key: 'type', label: '設備類別' },
-            { key: 'budgetPrice', label: '設備預算價' },
-            { key: 'inquiryYear', label: '詢價年度' },
-            { key: 'buildingCategory', label: '建築類別' },
-            { key: 'specDetail', label: '規格細項' },
-          ]}
+          dataSource={compareFields.map(f => ({ key: f.key, label: f.label }))}
           columns={compareColumns}
         />
       </Modal>
