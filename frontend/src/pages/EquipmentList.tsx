@@ -358,7 +358,7 @@ export default function EquipmentList() {
               <AutoComplete style={{ width: '100%' }}
                 options={searchHistory.map(h => ({ value: h }))}
                 value={equipmentName} onChange={setEquipmentName}
-                filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
+                filterOption={(input, option) => !input || String(option?.value ?? '').includes(input)}>
                 <Input placeholder="模糊搜尋…" onPressEnter={handleConfirm} />
               </AutoComplete>
             ),
