@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined } from '@ant-design/icons'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, PrinterOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
@@ -186,6 +186,54 @@ export default function EquipmentList() {
     win?.document.close()
   }
 
+  const compareFields: { label: string; get: (r: EquipmentRow) => string }[] = [
+    { label: '設備名稱', get: r => r.name },
+    { label: '廠牌', get: r => r.manufacturer },
+    { label: '產地', get: r => r.origin || '—' },
+    { label: '型號', get: r => r.model },
+    { label: '設備預算價（元）', get: r => r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—' },
+    { label: '規格細項', get: r => r.specDetail || '—' },
+  ]
+
+  const handleCopyCompare = () => {
+    const header = ['項目', ...selectedRows.map((_, i) => `廠商 ${i + 1}`)].join('\t')
+    const rows = compareFields.map(f => [f.label, ...selectedRows.map(r => f.get(r))].join('\t'))
+    navigator.clipboard.writeText([header, ...rows].join('\n'))
+      .then(() => message.success('已複製，可直接貼入 Excel'))
+  }
+
+  const handlePrintCompare = () => {
+    const trs = compareFields.map(f => `
+      <tr>
+        <td class="label">${f.label}</td>
+        ${selectedRows.map(r => {
+          if (f.label === '規格細項') {
+            const items = r.specDetail ? r.specDetail.split(/[、\n,，]/).map(s => s.trim()).filter(Boolean) : []
+            return `<td>${items.length ? items.map(s => `• ${s}`).join('<br>') : '—'}</td>`
+          }
+          return `<td>${f.get(r)}</td>`
+        }).join('')}
+      </tr>`).join('')
+    const vendorHeaders = selectedRows.map((_, i) => `<th>廠商 ${i + 1}</th>`).join('')
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>比較規格</title>
+      <style>body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:24px;color:#222}
+      h2{font-size:16px;margin-bottom:4px;color:#1F4E79}.sub{font-size:12px;color:#888;margin-bottom:20px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#1F4E79;color:#fff;padding:10px 12px;text-align:center;font-weight:600}
+      td{padding:9px 12px;border:1px solid #ddd;vertical-align:top}
+      .label{font-weight:600;background:#f0f4f8;width:130px}
+      tr:nth-child(even) td:not(.label){background:#fafcff}
+      @media print{@page{margin:16mm}}</style></head><body>
+      <h2>機電工程設備比較規格表</h2>
+      <div class="sub">製表日期：${new Date().toLocaleDateString('zh-TW')}</div>
+      <table><thead><tr><th>項目</th>${vendorHeaders}</tr></thead>
+      <tbody>${trs}</tbody></table>
+      <script>window.onload=()=>{window.print()}</script></body></html>`
+    const win = window.open('', '_blank')
+    win?.document.write(html)
+    win?.document.close()
+  }
+
   const openDetail = async (eq: EquipmentRow) => {
     setSelected(eq)
     setDetailLoading(true)
@@ -242,18 +290,21 @@ export default function EquipmentList() {
   ]
 
   const compareColumns = [
-    { title: '項目', dataIndex: 'label', key: 'label', width: 110, render: (v: string) => <strong>{v}</strong> },
+    { title: '項目', dataIndex: 'label', key: 'label', width: 120, render: (v: string) => <strong>{v}</strong> },
     ...selectedRows.map((r, i) => ({
       title: `廠商 ${i + 1}`,
       key: r.id,
       render: (row: { key: string }) => {
         if (row.key === 'budgetPrice') return r.budgetPrice != null
           ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span> : '—'
-        if (row.key === 'inquiryYear') return r.inquiryYear != null ? `${r.inquiryYear}年` : '—'
+        if (row.key === 'specDetail') {
+          const items = r.specDetail ? r.specDetail.split(/[、\n,，]/).map(s => s.trim()).filter(Boolean) : []
+          return items.length
+            ? <ul style={{ margin: 0, paddingLeft: 16 }}>{items.map((s, idx) => <li key={idx}>{s}</li>)}</ul>
+            : '—'
+        }
         const map: Record<string, string> = {
-          name: r.name, manufacturer: r.manufacturer, model: r.model,
-          origin: r.origin || '—', type: r.type,
-          buildingCategory: r.buildingCategory, specDetail: r.specDetail || '—',
+          name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—',
         }
         return map[row.key] ?? '—'
       },
@@ -430,19 +481,23 @@ export default function EquipmentList() {
       {/* 比較規格 Modal */}
       <Modal
         title={`比較規格（${selectedRows.length} 筆）`}
-        open={compareOpen} onCancel={() => setCompareOpen(false)} footer={null}
-        width={Math.min(200 + selectedRows.length * 240, 900)}
+        open={compareOpen} onCancel={() => setCompareOpen(false)}
+        width={Math.min(200 + selectedRows.length * 260, 960)}
+        footer={
+          <Space>
+            <Button icon={<CopyOutlined />} onClick={handleCopyCompare}>複製（貼入 Excel）</Button>
+            <Button icon={<PrinterOutlined />} onClick={handlePrintCompare}>列印</Button>
+            <Button onClick={() => setCompareOpen(false)}>關閉</Button>
+          </Space>
+        }
       >
         <Table size="small" pagination={false}
           dataSource={[
             { key: 'name', label: '設備名稱' },
             { key: 'manufacturer', label: '廠牌' },
-            { key: 'model', label: '型號' },
             { key: 'origin', label: '產地' },
-            { key: 'type', label: '設備類別' },
-            { key: 'budgetPrice', label: '設備預算價' },
-            { key: 'inquiryYear', label: '詢價年度' },
-            { key: 'buildingCategory', label: '建築類別' },
+            { key: 'model', label: '型號' },
+            { key: 'budgetPrice', label: '設備預算價（元）' },
             { key: 'specDetail', label: '規格細項' },
           ]}
           columns={compareColumns}
