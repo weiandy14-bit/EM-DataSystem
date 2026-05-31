@@ -539,7 +539,6 @@ export default function EquipmentList() {
               rowSelection={{
                 selectedRowKeys: selectedKeys,
                 onChange: (keys) => {
-                  if (keys.length > 3) { message.warning('最多選擇 3 筆進行比較'); return }
                   setSelectedKeys(keys as (string | number)[])
                 },
               }}
