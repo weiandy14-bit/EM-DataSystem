@@ -49,13 +49,14 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   let items = pages.map(pageToEquipment)
 
   // Post-filter by year (Notion date filter is limited)
+  // Items without installDate are kept (don't exclude unknown dates)
   if (yearStart) {
     const gStart = Number(yearStart) + 1911
-    items = items.filter(e => e.installDate && new Date(e.installDate).getFullYear() >= gStart)
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() >= gStart)
   }
   if (yearEnd) {
     const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => e.installDate && new Date(e.installDate).getFullYear() <= gEnd)
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() <= gEnd)
   }
 
   return json(items)
