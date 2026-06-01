@@ -12,11 +12,12 @@ const ROC_YEARS = Array.from({ length: currentRocYear - 99 }, (_, i) => 100 + i)
 const LAST_SEARCH_KEY = 'em_last_search'
 const SEARCH_HISTORY_KEY = 'em_search_history'
 const COLUMN_ORDER_KEY = 'em_column_order'
-const DRAGGABLE_COL_KEYS = ['name', 'spec', 'price', 'year', 'project'] as const
+const DRAGGABLE_COL_KEYS = ['project', 'name', 'origin', 'price', 'date'] as const
 
 type EquipmentRow = Equipment & {
   budgetPrice: number | null
   inquiryYear: number | null
+  inquiryDate: string
   projectCode: string
 }
 
@@ -146,6 +147,7 @@ export default function EquipmentList() {
         ...eq,
         budgetPrice: latest?.price ?? null,
         inquiryYear: latest ? new Date(latest.priceDate).getFullYear() : null,
+        inquiryDate: latest?.priceDate ?? '',
         projectCode: latest?.projectRef ?? '',
       }
     })
@@ -167,10 +169,11 @@ export default function EquipmentList() {
   const applyHistory = (item: HistoryItem) => runSearch(item.params)
   const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
 
-  const priced = data.filter(r => r.budgetPrice != null)
-  const statsMax = priced.length ? Math.max(...priced.map(r => r.budgetPrice!)) : null
-  const statsMin = priced.length ? Math.min(...priced.map(r => r.budgetPrice!)) : null
-  const statsAvg = priced.length ? Math.round(priced.reduce((s, r) => s + r.budgetPrice!, 0) / priced.length) : null
+  const yearCounts = data.reduce((acc, r) => {
+    if (r.inquiryYear != null) acc[r.inquiryYear] = (acc[r.inquiryYear] ?? 0) + 1
+    return acc
+  }, {} as Record<number, number>)
+  const yearEntries = Object.entries(yearCounts).sort(([a], [b]) => Number(a) - Number(b))
   const selectedRows = data.filter(r => selectedKeys.includes(r.id))
 
   useEffect(() => {
@@ -178,10 +181,10 @@ export default function EquipmentList() {
       if (!data.length) { message.warning('請先查詢資料後再匯出'); return }
       const trs = data.map((r, idx) => `
         <tr>
-          <td>${idx + 1}</td><td>${r.name}</td><td>${r.manufacturer} ${r.model}</td>
+          <td>${idx + 1}</td><td>${r.projectCode || '—'}</td><td>${r.name}</td>
+          <td>${r.origin || '—'}</td>
           <td style="text-align:right">${r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'}</td>
-          <td>${r.inquiryYear != null ? r.inquiryYear + '年' : '—'}</td>
-          <td>${r.projectCode || '—'}</td>
+          <td>${r.inquiryDate || '—'}</td>
         </tr>`).join('')
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>設備查詢結果</title>
         <style>body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:24px;color:#222}
@@ -194,8 +197,8 @@ export default function EquipmentList() {
         <h2>機電工程歷史數據管理系統 — 設備查詢結果</h2>
         <div class="sub">匯出日期：${new Date().toLocaleDateString('zh-TW')}　共 ${data.length} 筆</div>
         <table><thead><tr>
-          <th style="width:48px">項次</th><th>設備名稱</th><th>設備規格</th>
-          <th style="text-align:right">設備預算價</th><th>詢價年度</th><th>案件工號</th>
+          <th style="width:48px">項次</th><th>案件工號</th><th>設備名稱</th>
+          <th>產地</th><th style="text-align:right">設備預算價</th><th>詢價日期</th>
         </tr></thead><tbody>${trs}</tbody></table>
         <script>window.onload=()=>{window.print()}</script></body></html>`
       const win = window.open('', '_blank')
@@ -207,9 +210,9 @@ export default function EquipmentList() {
 
   const handleCsvExport = () => {
     if (!data.length) { message.warning('請先查詢資料後再匯出'); return }
-    const header = '項次,設備名稱,廠牌,型號,設備預算價,詢價年度,案件工號'
+    const header = '項次,案件工號,設備名稱,產地,設備預算價,詢價日期'
     const rows = data.map((r, i) =>
-      [i + 1, `"${r.name}"`, `"${r.manufacturer}"`, `"${r.model}"`, r.budgetPrice ?? '', r.inquiryYear ?? '', `"${r.projectCode}"`].join(',')
+      [i + 1, `"${r.projectCode}"`, `"${r.name}"`, `"${r.origin || ''}"`, r.budgetPrice ?? '', r.inquiryDate || ''].join(',')
     )
     const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -222,11 +225,11 @@ export default function EquipmentList() {
 
   const handleCopyRow = (r: EquipmentRow) => {
     const colValues: Record<string, string> = {
-      name: r.name,
-      spec: `${r.manufacturer} ${r.model}`,
-      price: r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—',
-      year: r.inquiryYear != null ? `${r.inquiryYear}年` : '—',
       project: r.projectCode || '—',
+      name: r.name,
+      origin: r.origin || '—',
+      price: r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—',
+      date: r.inquiryDate || '—',
     }
     const text = columnOrder.map(k => colValues[k]).join('\t')
     navigator.clipboard.writeText(text).then(() => message.success('已複製到剪貼板'))
@@ -285,20 +288,20 @@ export default function EquipmentList() {
   )
 
   const allColumns: Record<string, object> = {
+    project: {
+      title: draggableTitle('案件工號'), key: 'project',
+      onHeaderCell: () => colDragProps('project'),
+      render: (_: unknown, r: EquipmentRow) => r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
+    },
     name: {
       title: draggableTitle('設備名稱'), dataIndex: 'name', key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
       onHeaderCell: () => colDragProps('name'),
     },
-    spec: {
-      title: draggableTitle('設備規格'), key: 'spec',
-      onHeaderCell: () => colDragProps('spec'),
-      render: (_: unknown, r: EquipmentRow) => (
-        <span>
-          <span style={{ fontWeight: 600 }}>{r.manufacturer}</span>
-          <span style={{ color: '#888', marginLeft: 6 }}>{r.model}</span>
-        </span>
-      ),
+    origin: {
+      title: draggableTitle('產地'), key: 'origin',
+      onHeaderCell: () => colDragProps('origin'),
+      render: (_: unknown, r: EquipmentRow) => r.origin || <span style={{ color: '#ccc' }}>—</span>,
     },
     price: {
       title: draggableTitle('設備預算價'), key: 'price',
@@ -308,17 +311,12 @@ export default function EquipmentList() {
         ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span>
         : <span style={{ color: '#ccc' }}>—</span>,
     },
-    year: {
-      title: draggableTitle('詢價年度'), key: 'year', width: 100,
-      sorter: (a: EquipmentRow, b: EquipmentRow) => (a.inquiryYear ?? 0) - (b.inquiryYear ?? 0),
-      onHeaderCell: () => colDragProps('year'),
+    date: {
+      title: draggableTitle('詢價日期'), key: 'date', width: 120,
+      sorter: (a: EquipmentRow, b: EquipmentRow) => a.inquiryDate.localeCompare(b.inquiryDate),
+      onHeaderCell: () => colDragProps('date'),
       render: (_: unknown, r: EquipmentRow) =>
-        r.inquiryYear != null ? `${r.inquiryYear}年` : <span style={{ color: '#ccc' }}>—</span>,
-    },
-    project: {
-      title: draggableTitle('案件工號'), key: 'project',
-      onHeaderCell: () => colDragProps('project'),
-      render: (_: unknown, r: EquipmentRow) => r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
+        r.inquiryDate || <span style={{ color: '#ccc' }}>—</span>,
     },
   }
 
@@ -533,15 +531,17 @@ export default function EquipmentList() {
               <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
             </div>
 
-            {priced.length > 0 && (
-              <div style={{ display: 'flex', gap: 16, marginBottom: 10, padding: '8px 14px', background: '#f0f7ff', borderRadius: 6, fontSize: 13, flexWrap: 'wrap' }}>
-                <span>有報價 <strong>{priced.length}</strong> 筆</span>
-                <span style={{ color: '#ddd' }}>|</span>
-                <span>最高 <strong style={{ color: '#f5222d' }}>{statsMax!.toLocaleString('zh-TW')}</strong></span>
-                <span style={{ color: '#ddd' }}>|</span>
-                <span>最低 <strong style={{ color: '#52c41a' }}>{statsMin!.toLocaleString('zh-TW')}</strong></span>
-                <span style={{ color: '#ddd' }}>|</span>
-                <span>平均 <strong style={{ color: '#1677ff' }}>{statsAvg!.toLocaleString('zh-TW')}</strong></span>
+            {yearEntries.length > 0 && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 10, padding: '8px 14px', background: '#f0f7ff', borderRadius: 6, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: '#888', flexShrink: 0 }}>各年份數量：</span>
+                {yearEntries.map(([year, count]) => (
+                  <span key={year} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <strong>{year}</strong>
+                    <span style={{ color: '#888' }}>年</span>
+                    <strong style={{ color: '#1677ff' }}>{count}</strong>
+                    <span style={{ color: '#888' }}>筆</span>
+                  </span>
+                ))}
               </div>
             )}
 
