@@ -20,6 +20,9 @@ export interface Equipment {
   agent: string
   specDetail: string
   notes: string
+  budgetPrice?: number | null
+  inquiryDate?: string
+  projectCode?: string
 }
 
 export interface Material {

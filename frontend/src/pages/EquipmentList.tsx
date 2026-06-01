@@ -15,10 +15,7 @@ const COLUMN_ORDER_KEY = 'em_column_order'
 const DRAGGABLE_COL_KEYS = ['project', 'name', 'origin', 'price', 'date'] as const
 
 type EquipmentRow = Equipment & {
-  budgetPrice: number | null
   inquiryYear: number | null
-  inquiryDate: string
-  projectCode: string
 }
 
 interface SavedSearch {
@@ -129,28 +126,17 @@ export default function EquipmentList() {
     setSearchHistory(newHistory)
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
 
-    const [eqList, allPricing] = await Promise.all([
-      api.equipment.list({
-        keyword: params.name || undefined,
-        buildingCategories: params.buildings.length ? params.buildings : undefined,
-        yearStart: params.yearStart,
-        yearEnd: params.yearEnd,
-      }),
-      api.pricing.allEquipmentRecords(),
-    ])
-
-    const rows: EquipmentRow[] = eqList.map(eq => {
-      const latest = allPricing
-        .filter(p => p.entityId === eq.id && p.price > 0)
-        .sort((a, b) => b.priceDate.localeCompare(a.priceDate))[0] ?? null
-      return {
-        ...eq,
-        budgetPrice: latest?.price ?? null,
-        inquiryYear: latest ? new Date(latest.priceDate).getFullYear() : null,
-        inquiryDate: latest?.priceDate ?? '',
-        projectCode: latest?.projectRef ?? '',
-      }
+    const eqList = await api.equipment.list({
+      keyword: params.name || undefined,
+      buildingCategories: params.buildings.length ? params.buildings : undefined,
+      yearStart: params.yearStart,
+      yearEnd: params.yearEnd,
     })
+
+    const rows: EquipmentRow[] = eqList.map(eq => ({
+      ...eq,
+      inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
+    }))
     setData(rows)
     setLoading(false)
   }
@@ -313,7 +299,7 @@ export default function EquipmentList() {
     },
     date: {
       title: draggableTitle('詢價日期'), key: 'date', width: 120,
-      sorter: (a: EquipmentRow, b: EquipmentRow) => a.inquiryDate.localeCompare(b.inquiryDate),
+      sorter: (a: EquipmentRow, b: EquipmentRow) => (a.inquiryDate ?? '').localeCompare(b.inquiryDate ?? ''),
       onHeaderCell: () => colDragProps('date'),
       render: (_: unknown, r: EquipmentRow) =>
         r.inquiryDate || <span style={{ color: '#ccc' }}>—</span>,

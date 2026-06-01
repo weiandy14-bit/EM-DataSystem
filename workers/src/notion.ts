@@ -88,6 +88,9 @@ export function pageToEquipment(page: any) {
     agent: getText(p['代理商']),
     specDetail: getText(p['規格細項']),
     notes: getText(p['備註']),
+    budgetPrice: getNumber(p['設備預算價']) || null,
+    inquiryDate: getDate(p['詢價日期']),
+    projectCode: getText(p['案件工號']),
   }
 }
 
