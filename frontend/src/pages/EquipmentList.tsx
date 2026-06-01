@@ -359,25 +359,52 @@ export default function EquipmentList() {
   }
 
   const handlePrintCompare = () => {
-    const trs = compareFields.map(f => {
-      const vals = selectedRows.map(r => {
-        if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
-        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
-        return `<td>${map[f.key] ?? '—'}</td>`
-      }).join('')
-      return `<tr><td class="label">${f.label}</td>${vals}</tr>`
+    const COLS_PER_PAGE = 5
+    const groups: typeof selectedRows[] = []
+    for (let i = 0; i < selectedRows.length; i += COLS_PER_PAGE) {
+      groups.push(selectedRows.slice(i, i + COLS_PER_PAGE))
+    }
+
+    const renderCell = (f: typeof compareFields[0], r: typeof selectedRows[0]) => {
+      if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
+      const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+      return map[f.key] ?? '—'
+    }
+
+    const pages = groups.map((group, gi) => {
+      const startIdx = gi * COLS_PER_PAGE + 1
+      const endIdx = startIdx + group.length - 1
+      const trs = compareFields.map(f =>
+        `<tr><td class="label">${f.label}</td>${group.map(r => `<td>${renderCell(f, r)}</td>`).join('')}</tr>`
+      ).join('')
+      return `
+        <div class="page">
+          <h2>機電工程設備規格比較表</h2>
+          <div class="sub">製表日期：${new Date().toLocaleDateString('zh-TW')}　廠商 ${startIdx}～${endIdx}（共 ${selectedRows.length} 家）</div>
+          <table>
+            <thead><tr><th style="width:110px">項目</th>${group.map((_, i) => `<th>廠商 ${startIdx + i}</th>`).join('')}</tr></thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>`
     }).join('')
+
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>規格比較</title>
-      <style>body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:24px}
-      table{width:100%;border-collapse:collapse;font-size:13px}
-      th{background:#1F4E79;color:#fff;padding:10px 12px;text-align:center}
-      td{padding:9px 12px;border:1px solid #ddd;vertical-align:top}
-      .label{font-weight:600;background:#f0f4f8;width:120px}
-      @media print{@page{margin:16mm}}</style></head><body>
-      <h2 style="color:#1F4E79">機電工程設備規格比較表</h2>
-      <div style="font-size:12px;color:#888;margin-bottom:16px">製表日期：${new Date().toLocaleDateString('zh-TW')}</div>
-      <table><thead><tr><th>項目</th>${selectedRows.map((_, i) => `<th>廠商 ${i + 1}</th>`).join('')}</tr></thead>
-      <tbody>${trs}</tbody></table>
+      <style>
+        body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:0;margin:0}
+        .page{padding:16mm;box-sizing:border-box}
+        h2{font-size:15px;color:#1F4E79;margin:0 0 4px}
+        .sub{font-size:11px;color:#888;margin-bottom:14px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:center}
+        td{padding:8px 10px;border:1px solid #ddd;vertical-align:top;word-break:break-all}
+        .label{font-weight:600;background:#f0f4f8}
+        @media print{
+          @page{size:A4 landscape;margin:0}
+          .page{page-break-after:always;height:100vh}
+          .page:last-child{page-break-after:avoid}
+        }
+      </style></head><body>
+      ${pages}
       <script>window.onload=()=>{window.print()}</script></body></html>`
     const win = window.open('', '_blank')
     win?.document.write(html)
