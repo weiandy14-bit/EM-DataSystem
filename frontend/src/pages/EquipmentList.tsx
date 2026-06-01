@@ -141,7 +141,7 @@ export default function EquipmentList() {
 
     const rows: EquipmentRow[] = eqList.map(eq => {
       const latest = allPricing
-        .filter(p => p.entityId === eq.id)
+        .filter(p => p.entityId === eq.id && p.price > 0)
         .sort((a, b) => b.priceDate.localeCompare(a.priceDate))[0] ?? null
       return {
         ...eq,
