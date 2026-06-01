@@ -6,7 +6,7 @@ import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
 import { exportRef } from '../exportManager'
 
-const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修']
+const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修', '大專院校']
 const currentRocYear = new Date().getFullYear() - 1911
 const ROC_YEARS = Array.from({ length: currentRocYear - 99 }, (_, i) => 100 + i)
 const LAST_SEARCH_KEY = 'em_last_search'
