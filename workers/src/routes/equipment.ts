@@ -25,13 +25,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (type) filters.push({ property: '設備類別', select: { equals: type } })
   if (status) filters.push({ property: '狀態', select: { equals: status } })
-  if (keyword) filters.push({
-    or: [
-      { property: '設備名稱', title: { contains: keyword } },
-      { property: '廠牌', rich_text: { contains: keyword } },
-      { property: '型號', rich_text: { contains: keyword } },
-    ]
-  })
+  // keyword is handled post-query with flexible matching (see below)
   if (buildingCategories.length) {
     filters.push({
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
@@ -47,6 +41,15 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   ])
 
   let items = pages.map(pageToEquipment)
+
+  // Flexible keyword filter: exact substring OR all individual chars present
+  if (keyword) {
+    const kw = keyword.toLowerCase()
+    items = items.filter(e => {
+      const text = [e.name, e.manufacturer, e.model].join(' ').toLowerCase()
+      return text.includes(kw) || [...kw].every(c => text.includes(c))
+    })
+  }
 
   // Post-filter by year (Notion date filter is limited)
   // Items without installDate are kept (don't exclude unknown dates)
