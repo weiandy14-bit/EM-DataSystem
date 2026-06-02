@@ -7,8 +7,7 @@ import SpecHistory from '../components/SpecHistory'
 import { exportRef } from '../exportManager'
 
 const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修', '大專院校']
-const currentRocYear = new Date().getFullYear() - 1911
-const ROC_YEARS = Array.from({ length: currentRocYear - 99 }, (_, i) => 100 + i)
+const ROC_YEARS = Array.from({ length: 7 }, (_, i) => 110 + i) // 110~116
 const LAST_SEARCH_KEY = 'em_last_search'
 const SEARCH_HISTORY_KEY = 'em_search_history'
 const COLUMN_ORDER_KEY = 'em_column_order'
