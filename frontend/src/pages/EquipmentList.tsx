@@ -23,6 +23,7 @@ interface SavedSearch {
   yearStart?: number
   yearEnd?: number
   name: string
+  publicWorkCode?: string
 }
 
 interface HistoryItem {
@@ -37,6 +38,7 @@ function buildLabel(p: SavedSearch): string {
   if (p.buildings.length) parts.push(p.buildings.join('、'))
   const yr = [p.yearStart ? String(p.yearStart) : '', p.yearEnd ? String(p.yearEnd) : ''].filter(Boolean).join('～')
   if (yr) parts.push(`民國${yr}年`)
+  if (p.publicWorkCode) parts.push(`工程碼：${p.publicWorkCode}`)
   return parts.join(' · ') || '全部設備'
 }
 
@@ -54,6 +56,7 @@ export default function EquipmentList() {
   const [yearStart, setYearStart] = useState<number | undefined>(last?.yearStart)
   const [yearEnd, setYearEnd] = useState<number | undefined>(last?.yearEnd)
   const [equipmentName, setEquipmentName] = useState(last?.name ?? '')
+  const [publicWorkCode, setPublicWorkCode] = useState(last?.publicWorkCode ?? '')
   const [searchHistory, setSearchHistory] = useState<HistoryItem[]>(loadSearchHistory)
   const [data, setData] = useState<EquipmentRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -117,6 +120,7 @@ export default function EquipmentList() {
     setYearStart(params.yearStart)
     setYearEnd(params.yearEnd)
     setEquipmentName(params.name)
+    setPublicWorkCode(params.publicWorkCode ?? '')
 
     localStorage.setItem(LAST_SEARCH_KEY, JSON.stringify(params))
 
@@ -133,10 +137,14 @@ export default function EquipmentList() {
       yearEnd: params.yearEnd,
     })
 
-    const rows: EquipmentRow[] = eqList.map(eq => ({
+    let rows: EquipmentRow[] = eqList.map(eq => ({
       ...eq,
       inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
     }))
+    if (params.publicWorkCode?.trim()) {
+      const code = params.publicWorkCode.trim().toLowerCase()
+      rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
+    }
     setData(rows)
     setLoading(false)
   }
@@ -150,7 +158,7 @@ export default function EquipmentList() {
       message.warning('請輸入設備名稱')
       return
     }
-    runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName })
+    runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, publicWorkCode })
   }
   const applyHistory = (item: HistoryItem) => runSearch(item.params)
   const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
@@ -466,6 +474,19 @@ export default function EquipmentList() {
                 filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
                 <Input placeholder="模糊搜尋…" onPressEnter={handleConfirm} />
               </AutoComplete>
+            ),
+          },
+          {
+            key: 'publicWorkCode',
+            label: <span style={{ fontWeight: 600 }}>公共工程編碼</span>,
+            children: (
+              <Input
+                placeholder="輸入編碼（模糊比對）"
+                value={publicWorkCode}
+                onChange={e => setPublicWorkCode(e.target.value)}
+                onPressEnter={handleConfirm}
+                allowClear
+              />
             ),
           },
         ]} />
