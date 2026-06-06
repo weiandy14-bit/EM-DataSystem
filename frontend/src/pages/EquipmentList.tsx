@@ -139,7 +139,11 @@ export default function EquipmentList() {
 
       let rows: EquipmentRow[] = eqList.map(eq => ({
         ...eq,
-        inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
+        inquiryYear: eq.inquiryDate
+          ? new Date(eq.inquiryDate).getFullYear()
+          : eq.installDate
+          ? new Date(eq.installDate).getFullYear()
+          : null,
       }))
       if (params.publicWorkCode?.trim()) {
         const code = params.publicWorkCode.trim().toLowerCase()

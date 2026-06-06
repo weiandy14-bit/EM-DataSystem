@@ -15,7 +15,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   }
 
   // GET /api/equipment?type=&status=&keyword=&buildingCategories=&yearStart=&yearEnd=
-  const filters: any[] = []
   const type = url.searchParams.get('type')
   const status = url.searchParams.get('status')
   const keyword = url.searchParams.get('keyword')
@@ -23,42 +22,49 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  if (type) filters.push({ property: '設備類別', select: { equals: type } })
-  if (status) filters.push({ property: '狀態', select: { equals: status } })
-  // keyword is handled post-query with flexible matching (see below)
-  if (buildingCategories.length) {
-    filters.push({
-      or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
-    })
-  }
+  // Only push Notion-side filters for fields that are reliably populated
+  const notionFilters: any[] = []
+  if (type) notionFilters.push({ property: '設備類別', select: { equals: type } })
+  if (status) notionFilters.push({ property: '狀態', select: { equals: status } })
 
-  const filter = filters.length === 0 ? undefined
-    : filters.length === 1 ? filters[0]
-    : { and: filters }
+  const notionFilter = notionFilters.length === 0 ? undefined
+    : notionFilters.length === 1 ? notionFilters[0]
+    : { and: notionFilters }
 
-  const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, filter, [
+  const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, notionFilter, [
     { property: '設備名稱', direction: 'ascending' }
   ])
 
   let items = pages.map(pageToEquipment)
 
-  // Flexible keyword filter: exact substring OR all individual chars present
+  // Post-filter: keyword (flexible: substring or all chars present)
   if (keyword) {
     const kw = keyword.toLowerCase()
     items = items.filter(e => {
-      const text = [e.name, e.manufacturer, e.model].join(' ').toLowerCase()
+      const text = [e.name, e.manufacturer, e.model, e.specDetail].join(' ').toLowerCase()
       return text.includes(kw) || [...kw].every(c => text.includes(c))
     })
   }
 
-  // Post-filter by inquiry year; items without inquiryDate are kept
-  if (yearStart) {
-    const gStart = Number(yearStart) + 1911
-    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() >= gStart)
+  // Post-filter: building category — only if equipment has a category set
+  if (buildingCategories.length) {
+    items = items.filter(e => !e.buildingCategory || buildingCategories.includes(e.buildingCategory))
   }
-  if (yearEnd) {
-    const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() <= gEnd)
+
+  // Post-filter: inquiry/install year range
+  if (yearStart || yearEnd) {
+    const gStart = yearStart ? Number(yearStart) + 1911 : null
+    const gEnd = yearEnd ? Number(yearEnd) + 1911 : null
+    const dateStr = (e: ReturnType<typeof pageToEquipment>) =>
+      e.inquiryDate || e.installDate || ''
+    items = items.filter(e => {
+      const d = dateStr(e)
+      if (!d) return true
+      const yr = new Date(d).getFullYear()
+      if (gStart && yr < gStart) return false
+      if (gEnd && yr > gEnd) return false
+      return true
+    })
   }
 
   return json(items)
