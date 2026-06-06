@@ -8,19 +8,19 @@ export async function handleSpecs(req: Request, env: Env): Promise<Response> {
 
   if (!entityType || !entityId) return json({ error: 'entityType and entityId required' }, 400)
 
+  const relProp = entityType === 'equipment' ? '設備' : '材料'
   const filter: any = {
     and: [
-      { property: 'EntityType', select: { equals: entityType } },
-      { property: 'EntityId', rich_text: { equals: entityId } },
+      { property: relProp, relation: { contains: entityId } },
     ]
   }
 
   if (currentOnly) {
-    filter.and.push({ property: 'EffectiveTo', date: { is_empty: true } })
+    filter.and.push({ property: '失效日期', date: { is_empty: true } })
   }
 
   const pages = await queryDatabase(env, env.NOTION_DB_SPECIFICATIONS, filter, [
-    { property: 'EffectiveFrom', direction: 'descending' }
+    { property: '生效日期', direction: 'descending' }
   ])
 
   const specs = pages.map(pageToSpecification)

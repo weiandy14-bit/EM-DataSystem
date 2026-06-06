@@ -9,30 +9,23 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
   if (subpath === '/lookup') {
     if (!entityType || !entityId) return json({ error: 'entityType and entityId required' }, 400)
 
-    const dbId = entityType === 'equipment' ? env.NOTION_DB_EQUIPMENT : env.NOTION_DB_MATERIALS
     const entityMapper = entityType === 'equipment' ? pageToEquipment : pageToMaterial
 
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
     const [entityPage, specPages, pricePages, inspPages] = await Promise.all([
-      getPage(env, entityId).catch(() => null),
+      getPage(env, entityId),
       queryDatabase(env, env.NOTION_DB_SPECIFICATIONS, {
         and: [
-          { property: 'EntityType', select: { equals: entityType } },
-          { property: 'EntityId', rich_text: { equals: entityId } },
-          { property: 'EffectiveTo', date: { is_empty: true } },
+          { property: relProp, relation: { contains: entityId } },
+          { property: '失效日期', date: { is_empty: true } },
         ]
       }),
       queryDatabase(env, env.NOTION_DB_PRICING, {
-        and: [
-          { property: 'EntityType', select: { equals: entityType } },
-          { property: 'EntityId', rich_text: { equals: entityId } },
-        ]
-      }, [{ property: 'PriceDate', direction: 'descending' }]),
+        property: relProp, relation: { contains: entityId }
+      }, [{ property: '詢價日期', direction: 'descending' }]),
       queryDatabase(env, env.NOTION_DB_INSPECTIONS, {
-        and: [
-          { property: 'EntityType', select: { equals: entityType } },
-          { property: 'EntityId', rich_text: { equals: entityId } },
-        ]
-      }, [{ property: 'InspectionDate', direction: 'descending' }]),
+        property: relProp, relation: { contains: entityId }
+      }, [{ property: '驗收日期', direction: 'descending' }]),
     ])
 
     if (!entityPage) return json(null, 404)
@@ -47,16 +40,17 @@ export async function handleInspection(req: Request, env: Env, subpath: string):
   }
 
   // GET /api/inspection?entityType=&entityId=
-  const filters: any[] = []
-  if (entityType) filters.push({ property: 'EntityType', select: { equals: entityType } })
-  if (entityId) filters.push({ property: 'EntityId', rich_text: { equals: entityId } })
-
-  const filter = filters.length === 0 ? undefined
-    : filters.length === 1 ? filters[0]
-    : { and: filters }
+  let filter: unknown = undefined
+  if (entityType && entityId) {
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
+    filter = { property: relProp, relation: { contains: entityId } }
+  } else if (entityType) {
+    const relProp = entityType === 'equipment' ? '設備' : '材料'
+    filter = { property: relProp, relation: { is_not_empty: true } }
+  }
 
   const pages = await queryDatabase(env, env.NOTION_DB_INSPECTIONS, filter, [
-    { property: 'InspectionDate', direction: 'descending' }
+    { property: '驗收日期', direction: 'descending' }
   ])
 
   return json(pages.map(pageToInspectionRecord))
