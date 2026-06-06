@@ -65,8 +65,8 @@ export const api = {
           data = data.filter(e => e.name.toLowerCase().includes(kw) || e.manufacturer.toLowerCase().includes(kw) || e.model.toLowerCase().includes(kw))
         }
         if (filters?.buildingCategories?.length) data = data.filter(e => filters.buildingCategories!.includes(e.buildingCategory))
-        if (filters?.yearStart) data = data.filter(e => new Date(e.installDate).getFullYear() >= filters.yearStart! + 1911)
-        if (filters?.yearEnd) data = data.filter(e => new Date(e.installDate).getFullYear() <= filters.yearEnd! + 1911)
+        if (filters?.yearStart) data = data.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() >= filters.yearStart! + 1911)
+        if (filters?.yearEnd) data = data.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() <= filters.yearEnd! + 1911)
         return data
       }
       return get<Equipment[]>('/equipment', {

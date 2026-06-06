@@ -5,7 +5,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const id = path.replace('/api/equipment', '').replace(/^\//, '')
 
   if (id) {
-    // GET /api/equipment/:id — id is the Notion page UUID
+    // GET /api/equipment/:id
     try {
       const page = await getPage(env, id)
       return json(pageToEquipment(page))
@@ -23,18 +23,12 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  if (type) filters.push({ property: 'Type', select: { equals: type } })
-  if (status) filters.push({ property: 'Status', select: { equals: status } })
-  if (keyword) filters.push({
-    or: [
-      { property: 'Name', title: { contains: keyword } },
-      { property: 'Manufacturer', rich_text: { contains: keyword } },
-      { property: 'Model', rich_text: { contains: keyword } },
-    ]
-  })
+  if (type) filters.push({ property: '設備類別', select: { equals: type } })
+  if (status) filters.push({ property: '狀態', select: { equals: status } })
+  // keyword is handled post-query with flexible matching (see below)
   if (buildingCategories.length) {
     filters.push({
-      or: buildingCategories.map(c => ({ property: 'BuildingCategory', select: { equals: c } }))
+      or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
 
@@ -43,19 +37,28 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
     : { and: filters }
 
   const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, filter, [
-    { property: 'Name', direction: 'ascending' }
+    { property: '設備名稱', direction: 'ascending' }
   ])
 
   let items = pages.map(pageToEquipment)
 
-  // Post-filter by year (Notion date filter is limited)
+  // Flexible keyword filter: exact substring OR all individual chars present
+  if (keyword) {
+    const kw = keyword.toLowerCase()
+    items = items.filter(e => {
+      const text = [e.name, e.manufacturer, e.model].join(' ').toLowerCase()
+      return text.includes(kw) || [...kw].every(c => text.includes(c))
+    })
+  }
+
+  // Post-filter by inquiry year; items without inquiryDate are kept
   if (yearStart) {
     const gStart = Number(yearStart) + 1911
-    items = items.filter(e => e.installDate && new Date(e.installDate).getFullYear() >= gStart)
+    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() >= gStart)
   }
   if (yearEnd) {
     const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => e.installDate && new Date(e.installDate).getFullYear() <= gEnd)
+    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() <= gEnd)
   }
 
   return json(items)
