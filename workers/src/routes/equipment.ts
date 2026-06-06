@@ -22,12 +22,14 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  // Push filters to Notion to reduce pages fetched.
-  // NOTE: building category is NOT pushed to Notion because many records have no category set;
-  //       a strict Notion filter would exclude those records entirely.
   const notionFilters: any[] = []
   if (type) notionFilters.push({ property: '設備類別', select: { equals: type } })
   if (status) notionFilters.push({ property: '狀態', select: { equals: status } })
+  if (buildingCategories.length) {
+    notionFilters.push({
+      or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
+    })
+  }
   if (keyword) {
     notionFilters.push({
       or: [
@@ -48,11 +50,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   ])
 
   let items = pages.map(pageToEquipment)
-
-  // Post-filter: building category — only if equipment has a category set
-  if (buildingCategories.length) {
-    items = items.filter(e => !e.buildingCategory || buildingCategories.includes(e.buildingCategory))
-  }
 
   // Post-filter: inquiry/install year range
   if (yearStart || yearEnd) {
