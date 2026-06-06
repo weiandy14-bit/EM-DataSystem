@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Select, Card, Descriptions, Tag, Table, Badge, Typography, Space, Empty, Spin, Divider } from 'antd'
 import { SearchOutlined, CheckCircleOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { InspectionLookupResult, Equipment, Material } from '../types'
-import { mockEquipment, mockMaterials } from '../mock/data'
 
 const resultConfig = {
   pass: { color: 'success', icon: <CheckCircleOutlined />, label: '通過' },
@@ -13,17 +12,23 @@ const resultConfig = {
 
 type EntityOption = { label: string; value: string; entityType: 'equipment' | 'material' }
 
-const allOptions: EntityOption[] = [
-  ...mockEquipment.map((e: Equipment) => ({ label: `[設備] ${e.name}（${e.manufacturer}）`, value: e.id, entityType: 'equipment' as const })),
-  ...mockMaterials.map((m: Material) => ({ label: `[材料] ${m.name}`, value: m.id, entityType: 'material' as const })),
-]
-
 export default function InspectionLookup() {
+  const [options, setOptions] = useState<EntityOption[]>([])
   const [result, setResult] = useState<InspectionLookupResult | null>(null)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    Promise.all([api.equipment.list(), api.materials.list()]).then(([eq, mat]) => {
+      const opts: EntityOption[] = [
+        ...eq.map((e: Equipment) => ({ label: `[設備] ${e.name}（${e.manufacturer}）`, value: e.id, entityType: 'equipment' as const })),
+        ...mat.map((m: Material) => ({ label: `[材料] ${m.name}`, value: m.id, entityType: 'material' as const })),
+      ]
+      setOptions(opts)
+    })
+  }, [])
+
   const handleSelect = async (value: string) => {
-    const opt = allOptions.find(o => o.value === value)
+    const opt = options.find(o => o.value === value)
     if (!opt) return
     setLoading(true)
     const res = await api.inspection.lookup(opt.entityType, opt.value)
@@ -43,7 +48,7 @@ export default function InspectionLookup() {
         size="large"
         placeholder="輸入設備或材料名稱…"
         style={{ width: '100%', maxWidth: 600, marginBottom: 24 }}
-        options={allOptions}
+        options={options}
         onChange={handleSelect}
         optionFilterProp="label"
         suffixIcon={<SearchOutlined />}
