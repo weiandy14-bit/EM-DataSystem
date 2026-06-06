@@ -22,10 +22,22 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  // Only push Notion-side filters for fields that are reliably populated
+  // Push filters to Notion to reduce pages fetched.
+  // NOTE: building category is NOT pushed to Notion because many records have no category set;
+  //       a strict Notion filter would exclude those records entirely.
   const notionFilters: any[] = []
   if (type) notionFilters.push({ property: '設備類別', select: { equals: type } })
   if (status) notionFilters.push({ property: '狀態', select: { equals: status } })
+  if (keyword) {
+    notionFilters.push({
+      or: [
+        { property: '設備名稱', title: { contains: keyword } },
+        { property: '廠牌', rich_text: { contains: keyword } },
+        { property: '型號', rich_text: { contains: keyword } },
+        { property: '規格細項', rich_text: { contains: keyword } },
+      ]
+    })
+  }
 
   const notionFilter = notionFilters.length === 0 ? undefined
     : notionFilters.length === 1 ? notionFilters[0]
@@ -36,15 +48,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   ])
 
   let items = pages.map(pageToEquipment)
-
-  // Post-filter: keyword (flexible: substring or all chars present)
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    items = items.filter(e => {
-      const text = [e.name, e.manufacturer, e.model, e.specDetail].join(' ').toLowerCase()
-      return text.includes(kw) || [...kw].every(c => text.includes(c))
-    })
-  }
 
   // Post-filter: building category — only if equipment has a category set
   if (buildingCategories.length) {
