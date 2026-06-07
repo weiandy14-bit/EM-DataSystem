@@ -472,14 +472,17 @@ export default function EquipmentList() {
           },
           {
             key: 'name',
-            label: <span style={{ fontWeight: 600 }}>設備名稱</span>,
+            label: <span style={{ fontWeight: 600 }}>關鍵字搜尋</span>,
             children: (
-              <AutoComplete style={{ width: '100%' }}
-                options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
-                value={equipmentName} onChange={setEquipmentName}
-                filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
-                <Input placeholder="模糊搜尋…" onPressEnter={handleConfirm} />
-              </AutoComplete>
+              <>
+                <AutoComplete style={{ width: '100%' }}
+                  options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
+                  value={equipmentName} onChange={setEquipmentName}
+                  filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
+                  <Input placeholder="設備名稱／廠牌／型號／規格細項" onPressEnter={handleConfirm} />
+                </AutoComplete>
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>同時比對四個欄位</div>
+              </>
             ),
           },
           {
