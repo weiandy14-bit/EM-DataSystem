@@ -1,5 +1,5 @@
 import { Modal } from 'antd'
-import { Line, Column, Bar, Pie } from '@ant-design/plots'
+import { Line, Column, Pie } from '@ant-design/plots'
 import type { Equipment } from '../types'
 
 type EquipmentRow = Equipment & { inquiryYear: number | null }
@@ -53,7 +53,7 @@ export default function EquipmentDashboard({ data, open, onClose }: Props) {
     .map(([origin, value]) => ({ origin, value }))
     .sort((a, b) => b.value - a.value)
 
-  // ⑤ 廠牌市占 top 10（由少到多，長條圖由上到下排）
+  // ⑤ 廠牌市占 top 10（由多到少）
   const brandMap: Record<string, number> = {}
   data.forEach(r => {
     const m = r.manufacturer?.trim() || '未填'
@@ -61,8 +61,8 @@ export default function EquipmentDashboard({ data, open, onClose }: Props) {
   })
   const brandData = Object.entries(brandMap)
     .map(([brand, count]) => ({ brand, count }))
-    .sort((a, b) => a.count - b.count)
-    .slice(-10)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
 
   // ⑥ 預算價格分佈
   const ranges = [
@@ -152,11 +152,13 @@ export default function EquipmentDashboard({ data, open, onClose }: Props) {
         <div>
           <SectionTitle text="⑤ 廠牌市占排行（前10）" />
           {brandData.length ? (
-            <Bar
+            <Column
               data={brandData}
-              xField="count"
-              yField="brand"
+              xField="brand"
+              yField="count"
               height={H}
+              label={{ text: (d: { count: number }) => String(d.count) }}
+              axis={{ x: { labelAutoRotate: true } }}
             />
           ) : <Empty />}
         </div>
