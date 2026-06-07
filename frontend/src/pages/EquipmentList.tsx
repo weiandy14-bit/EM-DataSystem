@@ -62,6 +62,7 @@ export default function EquipmentList() {
   const [searched, setSearched] = useState(false)
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [compareOpen, setCompareOpen] = useState(false)
+  const [showYearCounts, setShowYearCounts] = useState(true)
 
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
@@ -540,10 +541,13 @@ export default function EquipmentList() {
               <Typography.Text type="secondary">
                 共 {data.length} 筆，點擊列可查看規格與費用詳情
               </Typography.Text>
-              <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
+              <Space size={8}>
+                <Checkbox checked={showYearCounts} onChange={e => setShowYearCounts(e.target.checked)}>各年份數量</Checkbox>
+                <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
+              </Space>
             </div>
 
-            {yearEntries.length > 0 && (
+            {showYearCounts && yearEntries.length > 0 && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 10, padding: '8px 14px', background: '#f0f7ff', borderRadius: 6, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ color: '#888', flexShrink: 0 }}>各年份數量：</span>
                 {yearEntries.map(([year, count]) => (
