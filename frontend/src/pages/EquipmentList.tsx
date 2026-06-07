@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined } from '@ant-design/icons'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined } from '@ant-design/icons'
+import EquipmentDashboard from '../components/EquipmentDashboard'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
@@ -63,6 +64,7 @@ export default function EquipmentList() {
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [compareOpen, setCompareOpen] = useState(false)
   const [showYearCounts, setShowYearCounts] = useState(true)
+  const [dashboardOpen, setDashboardOpen] = useState(false)
 
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
@@ -546,6 +548,7 @@ export default function EquipmentList() {
               </Typography.Text>
               <Space size={8}>
                 <Checkbox checked={showYearCounts} onChange={e => setShowYearCounts(e.target.checked)}>各年份數量</Checkbox>
+                <Button size="small" icon={<PieChartOutlined />} onClick={() => setDashboardOpen(true)}>儀表板</Button>
                 <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
               </Space>
             </div>
@@ -665,6 +668,8 @@ export default function EquipmentList() {
           columns={compareColumns}
         />
       </Modal>
+
+      <EquipmentDashboard data={data} open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
     </div>
   )
 }
