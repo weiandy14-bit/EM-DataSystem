@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined } from '@ant-design/icons'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
 import { exportRef } from '../exportManager'
+import EquipmentDashboard from '../components/EquipmentDashboard'
 
 const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修', '大專院校']
 const ROC_YEARS = Array.from({ length: 7 }, (_, i) => 110 + i) // 110~116
@@ -62,6 +63,8 @@ export default function EquipmentList() {
   const [searched, setSearched] = useState(false)
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [compareOpen, setCompareOpen] = useState(false)
+  const [showYearCounts, setShowYearCounts] = useState(true)
+  const [dashboardOpen, setDashboardOpen] = useState(false)
 
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
@@ -465,14 +468,17 @@ export default function EquipmentList() {
           },
           {
             key: 'name',
-            label: <span style={{ fontWeight: 600 }}>設備名稱</span>,
+            label: <span style={{ fontWeight: 600 }}>關鍵字搜尋</span>,
             children: (
-              <AutoComplete style={{ width: '100%' }}
-                options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
-                value={equipmentName} onChange={setEquipmentName}
-                filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
-                <Input placeholder="模糊搜尋…" onPressEnter={handleConfirm} />
-              </AutoComplete>
+              <>
+                <AutoComplete style={{ width: '100%' }}
+                  options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
+                  value={equipmentName} onChange={setEquipmentName}
+                  filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
+                  <Input placeholder="設備名稱／廠牌／型號" onPressEnter={handleConfirm} />
+                </AutoComplete>
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>同時比對多個欄位</div>
+              </>
             ),
           },
           {
@@ -534,10 +540,14 @@ export default function EquipmentList() {
               <Typography.Text type="secondary">
                 共 {data.length} 筆，點擊列可查看規格與費用詳情
               </Typography.Text>
-              <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
+              <Space size={8}>
+                <Checkbox checked={showYearCounts} onChange={e => setShowYearCounts(e.target.checked)}>各年份數量</Checkbox>
+                <Button size="small" icon={<PieChartOutlined />} onClick={() => setDashboardOpen(true)}>儀表板</Button>
+                <Button size="small" icon={<DownloadOutlined />} onClick={handleCsvExport}>匯出 CSV</Button>
+              </Space>
             </div>
 
-            {yearEntries.length > 0 && (
+            {showYearCounts && yearEntries.length > 0 && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 10, padding: '8px 14px', background: '#f0f7ff', borderRadius: 6, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ color: '#888', flexShrink: 0 }}>各年份數量：</span>
                 {yearEntries.map(([year, count]) => (
@@ -652,6 +662,8 @@ export default function EquipmentList() {
           columns={compareColumns}
         />
       </Modal>
+
+      <EquipmentDashboard data={data} open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
     </div>
   )
 }

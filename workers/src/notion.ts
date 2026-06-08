@@ -32,11 +32,18 @@ export async function getPage(env: Env, pageId: string) {
 }
 
 export async function queryDatabase(env: Env, dbId: string, filter?: unknown, sorts?: unknown) {
-  const body: Record<string, unknown> = { page_size: 100 }
-  if (filter) body.filter = filter
-  if (sorts) body.sorts = sorts
-  const data = await notionRequest(env, 'POST', `/databases/${dbId}/query`, body)
-  return data.results as any[]
+  const results: any[] = []
+  let cursor: string | undefined
+  do {
+    const body: Record<string, unknown> = { page_size: 100 }
+    if (filter) body.filter = filter
+    if (sorts) body.sorts = sorts
+    if (cursor) body.start_cursor = cursor
+    const data = await notionRequest(env, 'POST', `/databases/${dbId}/query`, body)
+    results.push(...(data.results as any[]))
+    cursor = data.has_more ? data.next_cursor : undefined
+  } while (cursor)
+  return results
 }
 
 // --- Property extractors ---
