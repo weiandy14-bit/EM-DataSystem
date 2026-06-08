@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
 import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined } from '@ant-design/icons'
-import EquipmentDashboard from '../components/EquipmentDashboard'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
 import { exportRef } from '../exportManager'
+import EquipmentDashboard from '../components/EquipmentDashboard'
 
 const BUILDING_CATEGORIES = ['辦公大樓', '五星旅館', '商辦大樓', 'Internet Data Center', '二工裝修', '大專院校']
 const ROC_YEARS = Array.from({ length: 7 }, (_, i) => 110 + i) // 110~116
@@ -132,38 +132,32 @@ export default function EquipmentList() {
     setSearchHistory(newHistory)
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
 
-    try {
-      const eqList = await api.equipment.list({
-        keyword: params.name || undefined,
-        buildingCategories: params.buildings.length ? params.buildings : undefined,
-        yearStart: params.yearStart,
-        yearEnd: params.yearEnd,
-      })
+    const eqList = await api.equipment.list({
+      keyword: params.name || undefined,
+      buildingCategories: params.buildings.length ? params.buildings : undefined,
+      yearStart: params.yearStart,
+      yearEnd: params.yearEnd,
+    })
 
-      let rows: EquipmentRow[] = eqList.map(eq => ({
-        ...eq,
-        inquiryYear: eq.inquiryDate
-          ? new Date(eq.inquiryDate).getFullYear()
-          : eq.installDate
-          ? new Date(eq.installDate).getFullYear()
-          : null,
-      }))
-      if (params.publicWorkCode?.trim()) {
-        const code = params.publicWorkCode.trim().toLowerCase()
-        rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
-      }
-      setData(rows)
-    } catch (err) {
-      message.error('查詢失敗，請稍後再試')
-      console.error(err)
-    } finally {
-      setLoading(false)
+    let rows: EquipmentRow[] = eqList.map(eq => ({
+      ...eq,
+      inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
+    }))
+    if (params.publicWorkCode?.trim()) {
+      const code = params.publicWorkCode.trim().toLowerCase()
+      rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
     }
+    setData(rows)
+    setLoading(false)
   }
 
   const handleConfirm = () => {
-    if ((yearStart && !yearEnd) || (!yearStart && yearEnd)) {
-      message.warning('年度起始與結束須同時填寫，或都不填')
+    if (!yearStart || !yearEnd) {
+      message.warning('請選擇年度起訖範圍（起始與結束年度都需填寫）')
+      return
+    }
+    if (!equipmentName.trim()) {
+      message.warning('請輸入設備名稱')
       return
     }
     runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, publicWorkCode })
@@ -440,7 +434,7 @@ export default function EquipmentList() {
         <Button type="primary" block style={{ marginBottom: 16, fontWeight: 600 }} onClick={handleConfirm}>
           確定查詢
         </Button>
-        <Collapse defaultActiveKey={['buildings', 'year', 'name', 'publicWorkCode']} ghost size="small" items={[
+        <Collapse defaultActiveKey={['buildings', 'year', 'name']} ghost size="small" items={[
           {
             key: 'buildings',
             label: <span style={{ fontWeight: 600 }}>建築類別</span>,
@@ -481,9 +475,9 @@ export default function EquipmentList() {
                   options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
                   value={equipmentName} onChange={setEquipmentName}
                   filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
-                  <Input placeholder="設備名稱／廠牌／型號／規格細項" onPressEnter={handleConfirm} />
+                  <Input placeholder="設備名稱／廠牌／型號" onPressEnter={handleConfirm} />
                 </AutoComplete>
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>同時比對四個欄位</div>
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>同時比對多個欄位</div>
               </>
             ),
           },

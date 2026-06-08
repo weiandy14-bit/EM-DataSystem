@@ -15,6 +15,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   }
 
   // GET /api/equipment?type=&status=&keyword=&buildingCategories=&yearStart=&yearEnd=
+  const filters: any[] = []
   const type = url.searchParams.get('type')
   const status = url.searchParams.get('status')
   const keyword = url.searchParams.get('keyword')
@@ -22,49 +23,43 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   const yearStart = url.searchParams.get('yearStart')
   const yearEnd = url.searchParams.get('yearEnd')
 
-  const notionFilters: any[] = []
-  if (type) notionFilters.push({ property: '設備類別', select: { equals: type } })
-  if (status) notionFilters.push({ property: '狀態', select: { equals: status } })
+  if (type) filters.push({ property: '設備類別', select: { equals: type } })
+  if (status) filters.push({ property: '狀態', select: { equals: status } })
+  // keyword is handled post-query with flexible matching (see below)
   if (buildingCategories.length) {
-    notionFilters.push({
+    filters.push({
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
-  if (keyword) {
-    notionFilters.push({
-      or: [
-        { property: '設備名稱', title: { contains: keyword } },
-        { property: '廠牌', rich_text: { contains: keyword } },
-        { property: '型號', rich_text: { contains: keyword } },
-        { property: '規格細項', rich_text: { contains: keyword } },
-      ]
-    })
-  }
 
-  const notionFilter = notionFilters.length === 0 ? undefined
-    : notionFilters.length === 1 ? notionFilters[0]
-    : { and: notionFilters }
+  const filter = filters.length === 0 ? undefined
+    : filters.length === 1 ? filters[0]
+    : { and: filters }
 
-  const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, notionFilter, [
+  const pages = await queryDatabase(env, env.NOTION_DB_EQUIPMENT, filter, [
     { property: '設備名稱', direction: 'ascending' }
   ])
 
   let items = pages.map(pageToEquipment)
 
-  // Post-filter: inquiry/install year range
-  if (yearStart || yearEnd) {
-    const gStart = yearStart ? Number(yearStart) + 1911 : null
-    const gEnd = yearEnd ? Number(yearEnd) + 1911 : null
-    const dateStr = (e: ReturnType<typeof pageToEquipment>) =>
-      e.inquiryDate || e.installDate || ''
+  // Flexible keyword filter: exact substring OR all individual chars present
+  if (keyword) {
+    const kw = keyword.toLowerCase()
     items = items.filter(e => {
-      const d = dateStr(e)
-      if (!d) return true
-      const yr = new Date(d).getFullYear()
-      if (gStart && yr < gStart) return false
-      if (gEnd && yr > gEnd) return false
-      return true
+      const text = [e.name, e.manufacturer, e.model].join(' ').toLowerCase()
+      return text.includes(kw) || [...kw].every(c => text.includes(c))
     })
+  }
+
+  // Post-filter by year (Notion date filter is limited)
+  // Items without installDate are kept (don't exclude unknown dates)
+  if (yearStart) {
+    const gStart = Number(yearStart) + 1911
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() >= gStart)
+  }
+  if (yearEnd) {
+    const gEnd = Number(yearEnd) + 1911
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() <= gEnd)
   }
 
   return json(items)
