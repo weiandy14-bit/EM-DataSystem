@@ -340,9 +340,19 @@ export default function EquipmentList() {
       title: draggableTitle('設備預算價'), key: 'price',
       sorter: (a: EquipmentRow, b: EquipmentRow) => (a.budgetPrice ?? -1) - (b.budgetPrice ?? -1),
       onHeaderCell: () => colDragProps('price'),
-      render: (_: unknown, r: EquipmentRow) => r.budgetPrice != null
-        ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span>
-        : <span style={{ color: '#ccc' }}>—</span>,
+      render: (_: unknown, r: EquipmentRow) => {
+        if (r.budgetPrice == null) return <span style={{ color: '#ccc' }}>—</span>
+        const p = r.budgetPrice
+        const wan = p / 10000
+        const label = wan >= 10000 ? `${(wan / 10000).toFixed(wan % 10000 === 0 ? 0 : 1)}億`
+          : wan >= 1 ? `${wan % 1 === 0 ? wan : wan.toFixed(wan >= 100 ? 0 : 1)}萬`
+          : `${p.toLocaleString('zh-TW')}`
+        const color = p >= 10000000 ? '#cf1322'
+          : p >= 1000000 ? '#d46b08'
+          : p >= 100000 ? '#237804'
+          : '#595959'
+        return <span style={{ color, fontWeight: 600 }}>{label}</span>
+      },
     },
     date: {
       title: draggableTitle('詢價日期'), key: 'date', width: 120,
