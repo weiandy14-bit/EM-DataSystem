@@ -345,7 +345,7 @@ export default function EquipmentList() {
         const p = r.budgetPrice
         const label = p.toLocaleString('zh-TW')
         const color = p >= 10000000 ? '#cf1322'
-          : p >= 1000000 ? '#d46b08'
+          : p >= 1000000 ? '#1677ff'
           : p >= 100000 ? '#237804'
           : '#595959'
         return <span style={{ color, fontWeight: 600 }}>{label}</span>
