@@ -343,10 +343,7 @@ export default function EquipmentList() {
       render: (_: unknown, r: EquipmentRow) => {
         if (r.budgetPrice == null) return <span style={{ color: '#ccc' }}>—</span>
         const p = r.budgetPrice
-        const wan = p / 10000
-        const label = wan >= 10000 ? `${(wan / 10000).toFixed(wan % 10000 === 0 ? 0 : 1)}億`
-          : wan >= 1 ? `${wan % 1 === 0 ? wan : wan.toFixed(wan >= 100 ? 0 : 1)}萬`
-          : `${p.toLocaleString('zh-TW')}`
+        const label = p.toLocaleString('zh-TW')
         const color = p >= 10000000 ? '#cf1322'
           : p >= 1000000 ? '#d46b08'
           : p >= 100000 ? '#237804'
