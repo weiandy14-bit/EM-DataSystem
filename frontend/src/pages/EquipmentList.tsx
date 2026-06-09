@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
-import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined } from '@ant-design/icons'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Slider, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
+import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
 import SpecHistory from '../components/SpecHistory'
@@ -66,6 +66,12 @@ export default function EquipmentList() {
   const [showYearCounts, setShowYearCounts] = useState(true)
   const [dashboardOpen, setDashboardOpen] = useState(false)
 
+  // 精選篩選
+  const [resultFilter, setResultFilter] = useState('')
+  const [filterOrigins, setFilterOrigins] = useState<string[]>([])
+  const [filterTypes, setFilterTypes] = useState<string[]>([])
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null)
+
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
   const [prices, setPrices] = useState<PricingRecord[]>([])
@@ -118,6 +124,10 @@ export default function EquipmentList() {
     setLoading(true)
     setSearched(true)
     setSelectedKeys([])
+    setResultFilter('')
+    setFilterOrigins([])
+    setFilterTypes([])
+    setPriceRange(null)
     setSelectedBuildings(params.buildings)
     setYearStart(params.yearStart)
     setYearEnd(params.yearEnd)
@@ -165,12 +175,39 @@ export default function EquipmentList() {
   const applyHistory = (item: HistoryItem) => runSearch(item.params)
   const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
 
-  const yearCounts = data.reduce((acc, r) => {
+  // 精選：從查詢結果再次過濾
+  const originOptions = useMemo(() => [...new Set(data.map(r => r.origin).filter(Boolean))].sort(), [data])
+  const typeOptions = useMemo(() => [...new Set(data.map(r => r.type).filter(Boolean))].sort(), [data])
+  const priceValues = useMemo(() => data.map(r => r.budgetPrice).filter((p): p is number => p != null && p > 0), [data])
+  const priceMin = priceValues.length ? Math.min(...priceValues) : 0
+  const priceMax = priceValues.length ? Math.max(...priceValues) : 0
+
+  const displayData = useMemo(() => {
+    let items = data
+    if (resultFilter.trim()) {
+      const kw = resultFilter.toLowerCase()
+      items = items.filter(r =>
+        [r.name, r.manufacturer, r.model, r.projectCode, r.specDetail].join(' ').toLowerCase().includes(kw)
+      )
+    }
+    if (filterOrigins.length) items = items.filter(r => filterOrigins.includes(r.origin))
+    if (filterTypes.length) items = items.filter(r => filterTypes.includes(r.type))
+    if (priceRange) {
+      const [lo, hi] = priceRange
+      items = items.filter(r => r.budgetPrice != null && r.budgetPrice >= lo && r.budgetPrice <= hi)
+    }
+    return items
+  }, [data, resultFilter, filterOrigins, filterTypes, priceRange])
+
+  const hasRefinement = !!(resultFilter || filterOrigins.length || filterTypes.length || priceRange)
+  const clearRefinement = () => { setResultFilter(''); setFilterOrigins([]); setFilterTypes([]); setPriceRange(null) }
+
+  const yearCounts = displayData.reduce((acc, r) => {
     if (r.inquiryYear != null) acc[r.inquiryYear] = (acc[r.inquiryYear] ?? 0) + 1
     return acc
   }, {} as Record<number, number>)
   const yearEntries = Object.entries(yearCounts).sort(([a], [b]) => Number(a) - Number(b))
-  const selectedRows = data.filter(r => selectedKeys.includes(r.id))
+  const selectedRows = displayData.filter(r => selectedKeys.includes(r.id))
 
   useEffect(() => {
     exportRef.current = () => {
@@ -538,7 +575,9 @@ export default function EquipmentList() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Typography.Text type="secondary">
-                共 {data.length} 筆，點擊列可查看規格與費用詳情
+                {hasRefinement
+                  ? <><strong style={{ color: '#1677ff' }}>{displayData.length}</strong> / {data.length} 筆（精選中）</>
+                  : <>共 {data.length} 筆</>}，點擊列可查看規格與費用詳情
               </Typography.Text>
               <Space size={8}>
                 <Checkbox checked={showYearCounts} onChange={e => setShowYearCounts(e.target.checked)}>各年份數量</Checkbox>
@@ -561,6 +600,61 @@ export default function EquipmentList() {
               </div>
             )}
 
+            {/* 精選列 */}
+            {data.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, padding: '10px 12px', background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Input
+                  prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+                  placeholder="在結果中搜尋…"
+                  style={{ width: 200 }}
+                  value={resultFilter}
+                  onChange={e => setResultFilter(e.target.value)}
+                  allowClear
+                  size="small"
+                />
+                {originOptions.length > 1 && (
+                  <Select
+                    mode="multiple" placeholder="產地" allowClear size="small"
+                    style={{ minWidth: 110 }}
+                    value={filterOrigins} onChange={setFilterOrigins}
+                    options={originOptions.map(o => ({ value: o, label: o }))}
+                    maxTagCount="responsive"
+                  />
+                )}
+                {typeOptions.length > 1 && (
+                  <Select
+                    mode="multiple" placeholder="設備類別" allowClear size="small"
+                    style={{ minWidth: 120 }}
+                    value={filterTypes} onChange={setFilterTypes}
+                    options={typeOptions.map(o => ({ value: o, label: o }))}
+                    maxTagCount="responsive"
+                  />
+                )}
+                {priceValues.length > 0 && priceMin < priceMax && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 220 }}>
+                    <span style={{ color: '#888', fontSize: 12, flexShrink: 0 }}>預算價：</span>
+                    <Slider
+                      range min={priceMin} max={priceMax}
+                      value={priceRange ?? [priceMin, priceMax]}
+                      onChange={v => {
+                        const [lo, hi] = v as [number, number]
+                        setPriceRange(lo === priceMin && hi === priceMax ? null : [lo, hi])
+                      }}
+                      tooltip={{ formatter: v => `${Math.round(v! / 10000)}萬` }}
+                      style={{ flex: 1 }}
+                      step={Math.max(1, Math.round((priceMax - priceMin) / 100))}
+                    />
+                    <span style={{ color: '#888', fontSize: 11, flexShrink: 0, minWidth: 60 }}>
+                      {priceRange ? `${Math.round(priceRange[0]/10000)}~${Math.round(priceRange[1]/10000)}萬` : '不限'}
+                    </span>
+                  </div>
+                )}
+                {hasRefinement && (
+                  <Button size="small" onClick={clearRefinement}>清除精選</Button>
+                )}
+              </div>
+            )}
+
             {selectedKeys.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 12px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 6, flexWrap: 'wrap' }}>
                 <Typography.Text style={{ fontSize: 13 }}>已選 <strong>{selectedKeys.length}</strong> 筆</Typography.Text>
@@ -576,7 +670,7 @@ export default function EquipmentList() {
             )}
 
             <Table
-              dataSource={data} columns={columns} rowKey="id"
+              dataSource={displayData} columns={columns} rowKey="id"
               loading={loading} size="middle"
               pagination={{ pageSize: 15, showSizeChanger: false }}
               rowSelection={{
