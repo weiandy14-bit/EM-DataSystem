@@ -187,7 +187,9 @@ export default function EquipmentList() {
     if (resultFilter.trim()) {
       const kw = resultFilter.toLowerCase()
       items = items.filter(r =>
-        [r.name, r.manufacturer, r.model, r.projectCode, r.specDetail].join(' ').toLowerCase().includes(kw)
+        [r.name, r.manufacturer, r.model, r.projectCode, r.specDetail,
+          r.type, r.location, r.publicWorkCode, r.specialItem, r.agent, r.notes, r.origin
+        ].join(' ').toLowerCase().includes(kw)
       )
     }
     if (filterOrigins.length) items = items.filter(r => filterOrigins.includes(r.origin))
