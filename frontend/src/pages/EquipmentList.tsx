@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Slider, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip } from 'antd'
+import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Slider, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip, Spin } from 'antd'
 import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import type { Equipment, Specification, PricingRecord } from '../types'
@@ -697,7 +697,7 @@ export default function EquipmentList() {
       {/* 詳情抽屜 */}
       <Drawer
         title={<span>{selected?.name}<Tag color="blue" style={{ marginLeft: 8, fontWeight: 400 }}>{selected?.buildingCategory}</Tag></span>}
-        open={!!selected} onClose={() => setSelected(undefined)} width={700} loading={detailLoading}
+        open={!!selected} onClose={() => setSelected(undefined)} width={700} maskClosable={false}
       >
         {selected && (
           <Tabs items={[
@@ -715,10 +715,10 @@ export default function EquipmentList() {
                 </Descriptions>
               ),
             },
-            { key: 'specs', label: `規格歷史（${specs.length}版）`, children: <SpecHistory specs={specs} /> },
+            { key: 'specs', label: `規格歷史（${specs.length}版）`, children: detailLoading ? <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div> : <SpecHistory specs={specs} /> },
             {
               key: 'prices', label: `報價紀錄（${prices.length}筆）`,
-              children: (() => {
+              children: detailLoading ? <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div> : (() => {
                 const sorted = [...prices].sort((a, b) => a.priceDate.localeCompare(b.priceDate))
                 return (
                   <Table size="small" dataSource={sorted} rowKey="id"
