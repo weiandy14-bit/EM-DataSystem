@@ -688,7 +688,7 @@ export default function EquipmentList() {
                   setSelectedKeys(keys as (string | number)[])
                 },
               }}
-              onRow={r => ({ onClick: () => openDetail(r), style: { cursor: 'pointer' } })}
+              onRow={r => ({ onClick: () => { if (!selected) openDetail(r) }, style: { cursor: 'pointer' } })}
             />
           </>
         )}
@@ -697,7 +697,7 @@ export default function EquipmentList() {
       {/* 詳情抽屜 */}
       <Drawer
         title={<span>{selected?.name}<Tag color="blue" style={{ marginLeft: 8, fontWeight: 400 }}>{selected?.buildingCategory}</Tag></span>}
-        open={!!selected} onClose={() => setSelected(undefined)} width={700} maskClosable={false}
+        open={!!selected} onClose={() => setSelected(undefined)} width={700}
       >
         {selected && (
           <Tabs items={[
