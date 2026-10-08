@@ -10,7 +10,7 @@
  */
 
 import { Client } from '@notionhq/client'
-import XLSX from 'xlsx'
+import * as XLSX from 'xlsx'
 import fs from 'fs'
 import path from 'path'
 
@@ -100,7 +100,7 @@ async function createPricing(row, equipmentId) {
 
 // ─── 解析單一 Excel 檔 ────────────────────────────────────
 function parseExcel(filePath) {
-  const wb = XLSX.readFile(filePath, { cellDates: true })
+  const wb = XLSX.read(fs.readFileSync(filePath), { cellDates: true, type: 'buffer' })
   // 取第一個工作表（跳過說明/清單等固定工作表）
   const skipSheets = new Set(['工作表說明', '清單', '所有項目內容文字都不可以用逗號', '綱要編碼章節對照表'])
   const sheetName = wb.SheetNames.find(n => !skipSheets.has(n))
