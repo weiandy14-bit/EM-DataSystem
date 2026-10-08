@@ -32,6 +32,20 @@ const notion = new Client({ auth: NOTION_TOKEN })
 // ─── 工具函式 ────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
+async function withRetry(fn, maxAttempts = 4) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const isTransient = err.message?.includes('fetch failed') ||
+        err.message?.includes('network') ||
+        err.status === 429 || err.status === 502 || err.status === 503
+      if (!isTransient || i === maxAttempts - 1) throw err
+      await sleep(2000 * Math.pow(2, i))
+    }
+  }
+}
+
 function richText(val) {
   const s = val == null ? '' : String(val).trim()
   if (!s) return []
@@ -175,12 +189,12 @@ async function main() {
       try {
         // 建立 Equipment
         await sleep(RATE_LIMIT_MS)
-        const eqId = await createEquipment(row)
+        const eqId = await withRetry(() => createEquipment(row))
 
         // 建立 PricingRecord（只在有報價資訊時建立）
         if (row.單價 || row.報價日期 || row.供應商) {
           await sleep(RATE_LIMIT_MS)
-          await createPricing(row, eqId)
+          await withRetry(() => createPricing(row, eqId))
         }
 
         success++
