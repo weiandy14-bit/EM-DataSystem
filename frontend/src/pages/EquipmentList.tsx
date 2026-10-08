@@ -12,7 +12,7 @@ const ROC_YEARS = Array.from({ length: 7 }, (_, i) => 110 + i) // 110~116
 const LAST_SEARCH_KEY = 'em_last_search'
 const SEARCH_HISTORY_KEY = 'em_search_history'
 const COLUMN_ORDER_KEY = 'em_column_order'
-const DRAGGABLE_COL_KEYS = ['project', 'name', 'origin', 'price', 'date'] as const
+const DRAGGABLE_COL_KEYS = ['project', 'name', 'manufacturer', 'origin', 'price', 'date'] as const
 
 type EquipmentRow = Equipment & {
   inquiryYear: number | null
@@ -332,6 +332,12 @@ export default function EquipmentList() {
       title: draggableTitle('設備名稱'), dataIndex: 'name', key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
       onHeaderCell: () => colDragProps('name'),
+    },
+    manufacturer: {
+      title: draggableTitle('廠牌'), key: 'manufacturer',
+      sorter: (a: EquipmentRow, b: EquipmentRow) => (a.manufacturer ?? '').localeCompare(b.manufacturer ?? '', 'zh-TW'),
+      onHeaderCell: () => colDragProps('manufacturer'),
+      render: (_: unknown, r: EquipmentRow) => r.manufacturer || <span style={{ color: '#ccc' }}>—</span>,
     },
     origin: {
       title: draggableTitle('產地'), key: 'origin',
