@@ -82,6 +82,13 @@ async function createEquipment(row) {
   if (row.備註)        props['備註']        = { rich_text: richText(row.備註) }
   const dateStr = toDateStr(row.安裝日期)
   if (dateStr)         props['安裝日期']    = { date: { start: dateStr } }
+  if (row.單價 != null && row.單價 !== '') {
+    const n = Number(row.單價)
+    if (!isNaN(n))     props['單價']        = { number: n }
+  }
+  const inquiryDateStr = toDateStr(row.報價日期)
+  if (inquiryDateStr)  props['報價日期']    = { date: { start: inquiryDateStr } }
+  if (row.案件工號)    props['案件工號']    = { rich_text: richText(row.案件工號) }
 
   const page = await notion.pages.create({
     parent: { database_id: EQUIPMENT_DB },
