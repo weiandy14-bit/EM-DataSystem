@@ -351,10 +351,18 @@ export default function EquipmentList() {
       title: draggableTitle('設備名稱'), key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
       onHeaderCell: () => colDragProps('name'),
-      render: (_: unknown, r: EquipmentRow) =>
-        r.specDetail
-          ? <Tooltip title={r.specDetail} placement="right" mouseEnterDelay={0.3}><span style={{ cursor: 'default' }}>{r.name}</span></Tooltip>
-          : r.name,
+      render: (_: unknown, r: EquipmentRow) => {
+        if (!r.specDetail) return r.name
+        const items = r.specDetail.split(/[\n，,；;]/).map(s => s.trim()).filter(Boolean)
+        const content = (
+          <div style={{ maxWidth: 320 }}>
+            {items.map((item, i) => (
+              <div key={i}>{i + 1}. {item}</div>
+            ))}
+          </div>
+        )
+        return <Tooltip title={content} placement="right" mouseEnterDelay={0.3}><span style={{ cursor: 'default' }}>{r.name}</span></Tooltip>
+      },
     },
     manufacturer: {
       title: draggableTitle('廠牌'), key: 'manufacturer',
