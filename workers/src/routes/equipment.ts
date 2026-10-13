@@ -42,12 +42,11 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   let items = pages.map(pageToEquipment)
 
-  // Flexible keyword filter: exact substring OR all individual chars present
   if (keyword) {
     const kw = keyword.toLowerCase()
     items = items.filter(e => {
       const text = [e.name, e.manufacturer, e.model, e.specDetail, e.notes, e.publicWorkCode].join(' ').toLowerCase()
-      return text.includes(kw) || [...kw].every(c => text.includes(c))
+      return text.includes(kw)
     })
   }
 
