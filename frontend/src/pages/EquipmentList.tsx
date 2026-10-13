@@ -23,6 +23,8 @@ interface SavedSearch {
   yearStart?: number
   yearEnd?: number
   name: string
+  keyword2?: string
+  keyword3?: string
   publicWorkCode?: string
 }
 
@@ -34,7 +36,8 @@ interface HistoryItem {
 
 function buildLabel(p: SavedSearch): string {
   const parts: string[] = []
-  if (p.name) parts.push(p.name)
+  const kws = [p.name, p.keyword2, p.keyword3].filter(Boolean)
+  if (kws.length) parts.push(kws.join(' AND '))
   if (p.buildings.length) parts.push(p.buildings.join('、'))
   const yr = [p.yearStart ? String(p.yearStart) : '', p.yearEnd ? String(p.yearEnd) : ''].filter(Boolean).join('～')
   if (yr) parts.push(`民國${yr}年`)
@@ -56,6 +59,8 @@ export default function EquipmentList() {
   const [yearStart, setYearStart] = useState<number | undefined>(last?.yearStart)
   const [yearEnd, setYearEnd] = useState<number | undefined>(last?.yearEnd)
   const [equipmentName, setEquipmentName] = useState(last?.name ?? '')
+  const [keyword2, setKeyword2] = useState(last?.keyword2 ?? '')
+  const [keyword3, setKeyword3] = useState(last?.keyword3 ?? '')
   const [publicWorkCode, setPublicWorkCode] = useState(last?.publicWorkCode ?? '')
   const [searchHistory, setSearchHistory] = useState<HistoryItem[]>(loadSearchHistory)
   const [data, setData] = useState<EquipmentRow[]>([])
@@ -132,6 +137,8 @@ export default function EquipmentList() {
     setYearStart(params.yearStart)
     setYearEnd(params.yearEnd)
     setEquipmentName(params.name)
+    setKeyword2(params.keyword2 ?? '')
+    setKeyword3(params.keyword3 ?? '')
     setPublicWorkCode(params.publicWorkCode ?? '')
 
     localStorage.setItem(LAST_SEARCH_KEY, JSON.stringify(params))
@@ -153,6 +160,18 @@ export default function EquipmentList() {
       ...eq,
       inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
     }))
+
+    // AND 邏輯：所有非空關鍵字都必須符合
+    const keywords = [params.name, params.keyword2, params.keyword3]
+      .map(k => k?.trim().toLowerCase()).filter(Boolean) as string[]
+    if (keywords.length > 0) {
+      rows = rows.filter(r => {
+        const text = [r.name, r.manufacturer, r.model, r.specDetail, r.notes, r.publicWorkCode, r.origin]
+          .join(' ').toLowerCase()
+        return keywords.every(kw => text.includes(kw))
+      })
+    }
+
     if (params.publicWorkCode?.trim()) {
       const code = params.publicWorkCode.trim().toLowerCase()
       rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
@@ -170,7 +189,7 @@ export default function EquipmentList() {
       message.warning('請輸入設備名稱')
       return
     }
-    runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, publicWorkCode })
+    runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, keyword2, keyword3, publicWorkCode })
   }
   const applyHistory = (item: HistoryItem) => runSearch(item.params)
   const clearHistory = () => { setSearchHistory([]); localStorage.removeItem(SEARCH_HISTORY_KEY) }
@@ -527,9 +546,21 @@ export default function EquipmentList() {
                   options={searchHistory.map(h => ({ value: h.params.name })).filter(h => h.value)}
                   value={equipmentName} onChange={setEquipmentName}
                   filterOption={(input, option) => !input || (option?.value ?? '').includes(input)}>
-                  <Input placeholder="設備名稱／廠牌／型號" onPressEnter={handleConfirm} />
+                  <Input placeholder="關鍵字 1（必填）" onPressEnter={handleConfirm} />
                 </AutoComplete>
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>同時比對多個欄位</div>
+                <Input
+                  style={{ marginTop: 6 }}
+                  placeholder="關鍵字 2（選填，AND）"
+                  value={keyword2} onChange={e => setKeyword2(e.target.value)}
+                  onPressEnter={handleConfirm} allowClear
+                />
+                <Input
+                  style={{ marginTop: 6 }}
+                  placeholder="關鍵字 3（選填，AND）"
+                  value={keyword3} onChange={e => setKeyword3(e.target.value)}
+                  onPressEnter={handleConfirm} allowClear
+                />
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>三個關鍵字需同時符合，比對設備名稱、廠牌、型號、規格細項等欄位</div>
               </>
             ),
           },
