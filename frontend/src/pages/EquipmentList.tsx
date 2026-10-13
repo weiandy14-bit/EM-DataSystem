@@ -419,6 +419,7 @@ export default function EquipmentList() {
     { key: 'origin', label: '產地' },
     { key: 'model', label: '型號' },
     { key: 'budgetPrice', label: '設備預算價（元）' },
+    { key: 'inquiryDate', label: '詢價日期' },
     { key: 'specDetail', label: '規格細項' },
   ]
 
@@ -427,7 +428,7 @@ export default function EquipmentList() {
     const rows = compareFields.map(f => {
       const vals = selectedRows.map(r => {
         if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
-        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—', inquiryDate: r.inquiryDate || '—' }
         return map[f.key] ?? '—'
       })
       return [f.label, ...vals].join('\t')
@@ -444,7 +445,7 @@ export default function EquipmentList() {
 
     const renderCell = (f: typeof compareFields[0], r: typeof selectedRows[0]) => {
       if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
-      const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+      const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—', inquiryDate: r.inquiryDate || '—' }
       return map[f.key] ?? '—'
     }
 
@@ -502,7 +503,7 @@ export default function EquipmentList() {
             ? <ul style={{ margin: 0, paddingLeft: 16 }}>{parts.map((p, j) => <li key={j}>{p}</li>)}</ul>
             : <span>{parts[0] || '—'}</span>
         }
-        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—' }
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', inquiryDate: r.inquiryDate || '—' }
         return map[row.key] ?? '—'
       },
     })),
