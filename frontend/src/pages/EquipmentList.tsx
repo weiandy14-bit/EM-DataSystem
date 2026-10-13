@@ -361,7 +361,7 @@ export default function EquipmentList() {
       onHeaderCell: () => colDragProps('name'),
       render: (_: unknown, r: EquipmentRow) => {
         if (!r.specDetail) return r.name
-        const items = r.specDetail.split(/[\n，,；;]/).map(s => s.trim()).filter(Boolean)
+        const items = r.specDetail.split(/[\n，,；;]/).map(s => s.trim().replace(/^\d+[.、．]\s*/, '')).filter(Boolean)
         const content = (
           <div style={{ maxWidth: 320 }}>
             {items.map((item, i) => (
@@ -512,7 +512,7 @@ export default function EquipmentList() {
         if (row.key === 'budgetPrice') return r.budgetPrice != null
           ? <span style={{ color: '#1677ff', fontWeight: 600 }}>{r.budgetPrice.toLocaleString('zh-TW')}</span> : '—'
         if (row.key === 'specDetail') {
-          const parts = (r.specDetail || '—').split(/[、\n,，]/).map(s => s.trim()).filter(Boolean)
+          const parts = (r.specDetail || '—').split(/[、\n,，]/).map(s => s.trim().replace(/^\d+[.、．]\s*/, '')).filter(Boolean)
           return parts.length > 1
             ? <ul style={{ margin: 0, paddingLeft: 16 }}>{parts.map((p, j) => <li key={j}>{p}</li>)}</ul>
             : <span>{parts[0] || '—'}</span>
