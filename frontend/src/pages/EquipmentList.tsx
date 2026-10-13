@@ -348,9 +348,27 @@ export default function EquipmentList() {
       render: (_: unknown, r: EquipmentRow) => r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
     },
     name: {
-      title: draggableTitle('設備名稱'), dataIndex: 'name', key: 'name',
+      title: draggableTitle('設備名稱'), key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
       onHeaderCell: () => colDragProps('name'),
+      render: (_: unknown, r: EquipmentRow) => {
+        if (!r.specDetail) return r.name
+        const items = r.specDetail.split(/[\n，,；;]/).map(s => s.trim()).filter(Boolean)
+        const content = (
+          <div style={{ maxWidth: 320 }}>
+            {items.map((item, i) => (
+              <div key={i}>{i + 1}. {item}</div>
+            ))}
+          </div>
+        )
+        return <Tooltip title={content} placement="right" mouseEnterDelay={0.3}><span style={{ cursor: 'default' }}>{r.name}</span></Tooltip>
+      },
+    },
+    manufacturer: {
+      title: draggableTitle('廠牌'), key: 'manufacturer',
+      sorter: (a: EquipmentRow, b: EquipmentRow) => (a.manufacturer ?? '').localeCompare(b.manufacturer ?? '', 'zh-TW'),
+      onHeaderCell: () => colDragProps('manufacturer'),
+      render: (_: unknown, r: EquipmentRow) => r.manufacturer || <span style={{ color: '#ccc' }}>—</span>,
     },
     manufacturer: {
       title: draggableTitle('廠牌'), key: 'manufacturer',
@@ -407,6 +425,7 @@ export default function EquipmentList() {
     { key: 'origin', label: '產地' },
     { key: 'model', label: '型號' },
     { key: 'budgetPrice', label: '設備預算價（元）' },
+    { key: 'inquiryDate', label: '詢價日期' },
     { key: 'specDetail', label: '規格細項' },
   ]
 
@@ -415,7 +434,7 @@ export default function EquipmentList() {
     const rows = compareFields.map(f => {
       const vals = selectedRows.map(r => {
         if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
-        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—', inquiryDate: r.inquiryDate || '—' }
         return map[f.key] ?? '—'
       })
       return [f.label, ...vals].join('\t')
@@ -432,7 +451,7 @@ export default function EquipmentList() {
 
     const renderCell = (f: typeof compareFields[0], r: typeof selectedRows[0]) => {
       if (f.key === 'budgetPrice') return r.budgetPrice != null ? r.budgetPrice.toLocaleString('zh-TW') : '—'
-      const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—' }
+      const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', specDetail: r.specDetail || '—', inquiryDate: r.inquiryDate || '—' }
       return map[f.key] ?? '—'
     }
 
@@ -490,7 +509,7 @@ export default function EquipmentList() {
             ? <ul style={{ margin: 0, paddingLeft: 16 }}>{parts.map((p, j) => <li key={j}>{p}</li>)}</ul>
             : <span>{parts[0] || '—'}</span>
         }
-        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—' }
+        const map: Record<string, string> = { name: r.name, manufacturer: r.manufacturer, model: r.model, origin: r.origin || '—', inquiryDate: r.inquiryDate || '—' }
         return map[row.key] ?? '—'
       },
     })),
