@@ -348,9 +348,13 @@ export default function EquipmentList() {
       render: (_: unknown, r: EquipmentRow) => r.projectCode || <span style={{ color: '#ccc' }}>—</span>,
     },
     name: {
-      title: draggableTitle('設備名稱'), dataIndex: 'name', key: 'name',
+      title: draggableTitle('設備名稱'), key: 'name',
       sorter: (a: EquipmentRow, b: EquipmentRow) => a.name.localeCompare(b.name, 'zh-TW'),
       onHeaderCell: () => colDragProps('name'),
+      render: (_: unknown, r: EquipmentRow) =>
+        r.specDetail
+          ? <Tooltip title={r.specDetail} placement="right" mouseEnterDelay={0.3}><span style={{ cursor: 'default' }}>{r.name}</span></Tooltip>
+          : r.name,
     },
     manufacturer: {
       title: draggableTitle('廠牌'), key: 'manufacturer',
