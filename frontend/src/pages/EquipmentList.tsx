@@ -69,7 +69,7 @@ export default function EquipmentList() {
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [compareOpen, setCompareOpen] = useState(false)
   const [showYearCounts, setShowYearCounts] = useState(true)
-  const [selectedYears, setSelectedYears] = useState<number[]>([])
+  const [hiddenYears, setHiddenYears] = useState<number[]>([])
   const [dashboardOpen, setDashboardOpen] = useState(false)
 
   // 精選篩選
@@ -134,7 +134,7 @@ export default function EquipmentList() {
     setFilterOrigins([])
     setFilterTypes([])
     setPriceRange(null)
-    setSelectedYears([])
+    setHiddenYears([])
     setSelectedBuildings(params.buildings)
     setYearStart(params.yearStart)
     setYearEnd(params.yearEnd)
@@ -232,9 +232,9 @@ export default function EquipmentList() {
   const yearEntries = Object.entries(yearCounts).sort(([a], [b]) => Number(a) - Number(b))
 
   const tableData = useMemo(() => {
-    if (!selectedYears.length) return displayData
-    return displayData.filter(r => r.inquiryYear != null && selectedYears.includes(r.inquiryYear))
-  }, [displayData, selectedYears])
+    if (!hiddenYears.length) return displayData
+    return displayData.filter(r => r.inquiryYear == null || !hiddenYears.includes(r.inquiryYear))
+  }, [displayData, hiddenYears])
 
   const selectedRows = tableData.filter(r => selectedKeys.includes(r.id))
 
@@ -648,7 +648,7 @@ export default function EquipmentList() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Typography.Text type="secondary">
-                {(hasRefinement || selectedYears.length > 0)
+                {(hasRefinement || hiddenYears.length > 0)
                   ? <><strong style={{ color: '#1677ff' }}>{tableData.length}</strong> / {data.length} 筆（篩選中）</>
                   : <>共 {data.length} 筆</>}，點擊列可查看規格與費用詳情
               </Typography.Text>
@@ -664,24 +664,26 @@ export default function EquipmentList() {
                 <span style={{ color: '#888', flexShrink: 0 }}>各年份數量：</span>
                 {yearEntries.map(([year, count]) => {
                   const y = Number(year)
-                  const checked = selectedYears.includes(y)
+                  const hidden = hiddenYears.includes(y)
                   return (
                     <Checkbox
                       key={year}
-                      checked={checked}
-                      onChange={e => setSelectedYears(prev =>
+                      checked={hidden}
+                      onChange={e => setHiddenYears(prev =>
                         e.target.checked ? [...prev, y] : prev.filter(x => x !== y)
                       )}
                     >
-                      <strong>{year}</strong>
-                      <span style={{ color: '#888' }}>年 </span>
-                      <strong style={{ color: checked ? '#1677ff' : '#888' }}>{count}</strong>
-                      <span style={{ color: '#888' }}>筆</span>
+                      <span style={{ textDecoration: hidden ? 'line-through' : 'none', color: hidden ? '#bbb' : 'inherit' }}>
+                        <strong>{year}</strong>
+                        <span style={{ color: hidden ? '#bbb' : '#888' }}>年 </span>
+                        <strong style={{ color: hidden ? '#bbb' : '#1677ff' }}>{count}</strong>
+                        <span style={{ color: hidden ? '#bbb' : '#888' }}>筆</span>
+                      </span>
                     </Checkbox>
                   )
                 })}
-                {selectedYears.length > 0 && (
-                  <Button size="small" type="text" onClick={() => setSelectedYears([])}>清除</Button>
+                {hiddenYears.length > 0 && (
+                  <Button size="small" type="text" onClick={() => setHiddenYears([])}>恢復全部</Button>
                 )}
               </div>
             )}
