@@ -378,12 +378,6 @@ export default function EquipmentList() {
       onHeaderCell: () => colDragProps('manufacturer'),
       render: (_: unknown, r: EquipmentRow) => r.manufacturer || <span style={{ color: '#ccc' }}>—</span>,
     },
-    manufacturer: {
-      title: draggableTitle('廠牌'), key: 'manufacturer',
-      sorter: (a: EquipmentRow, b: EquipmentRow) => (a.manufacturer ?? '').localeCompare(b.manufacturer ?? '', 'zh-TW'),
-      onHeaderCell: () => colDragProps('manufacturer'),
-      render: (_: unknown, r: EquipmentRow) => r.manufacturer || <span style={{ color: '#ccc' }}>—</span>,
-    },
     origin: {
       title: draggableTitle('產地'), key: 'origin',
       onHeaderCell: () => colDragProps('origin'),
