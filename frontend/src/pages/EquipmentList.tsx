@@ -69,6 +69,7 @@ export default function EquipmentList() {
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [compareOpen, setCompareOpen] = useState(false)
   const [showYearCounts, setShowYearCounts] = useState(true)
+  const [selectedYears, setSelectedYears] = useState<number[]>([])
   const [dashboardOpen, setDashboardOpen] = useState(false)
 
   // 精選篩選
@@ -133,6 +134,7 @@ export default function EquipmentList() {
     setFilterOrigins([])
     setFilterTypes([])
     setPriceRange(null)
+    setSelectedYears([])
     setSelectedBuildings(params.buildings)
     setYearStart(params.yearStart)
     setYearEnd(params.yearEnd)
@@ -228,7 +230,13 @@ export default function EquipmentList() {
     return acc
   }, {} as Record<number, number>)
   const yearEntries = Object.entries(yearCounts).sort(([a], [b]) => Number(a) - Number(b))
-  const selectedRows = displayData.filter(r => selectedKeys.includes(r.id))
+
+  const tableData = useMemo(() => {
+    if (!selectedYears.length) return displayData
+    return displayData.filter(r => r.inquiryYear != null && selectedYears.includes(r.inquiryYear))
+  }, [displayData, selectedYears])
+
+  const selectedRows = tableData.filter(r => selectedKeys.includes(r.id))
 
   useEffect(() => {
     exportRef.current = () => {
@@ -640,8 +648,8 @@ export default function EquipmentList() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Typography.Text type="secondary">
-                {hasRefinement
-                  ? <><strong style={{ color: '#1677ff' }}>{displayData.length}</strong> / {data.length} 筆（精選中）</>
+                {(hasRefinement || selectedYears.length > 0)
+                  ? <><strong style={{ color: '#1677ff' }}>{tableData.length}</strong> / {data.length} 筆（篩選中）</>
                   : <>共 {data.length} 筆</>}，點擊列可查看規格與費用詳情
               </Typography.Text>
               <Space size={8}>
@@ -654,14 +662,27 @@ export default function EquipmentList() {
             {showYearCounts && yearEntries.length > 0 && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 10, padding: '8px 14px', background: '#f0f7ff', borderRadius: 6, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ color: '#888', flexShrink: 0 }}>各年份數量：</span>
-                {yearEntries.map(([year, count]) => (
-                  <span key={year} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <strong>{year}</strong>
-                    <span style={{ color: '#888' }}>年</span>
-                    <strong style={{ color: '#1677ff' }}>{count}</strong>
-                    <span style={{ color: '#888' }}>筆</span>
-                  </span>
-                ))}
+                {yearEntries.map(([year, count]) => {
+                  const y = Number(year)
+                  const checked = selectedYears.includes(y)
+                  return (
+                    <Checkbox
+                      key={year}
+                      checked={checked}
+                      onChange={e => setSelectedYears(prev =>
+                        e.target.checked ? [...prev, y] : prev.filter(x => x !== y)
+                      )}
+                    >
+                      <strong>{year}</strong>
+                      <span style={{ color: '#888' }}>年 </span>
+                      <strong style={{ color: checked ? '#1677ff' : '#888' }}>{count}</strong>
+                      <span style={{ color: '#888' }}>筆</span>
+                    </Checkbox>
+                  )
+                })}
+                {selectedYears.length > 0 && (
+                  <Button size="small" type="text" onClick={() => setSelectedYears([])}>清除</Button>
+                )}
               </div>
             )}
 
@@ -735,7 +756,7 @@ export default function EquipmentList() {
             )}
 
             <Table
-              dataSource={displayData} columns={columns} rowKey="id"
+              dataSource={tableData} columns={columns} rowKey="id"
               loading={loading} size="middle"
               pagination={{ pageSize: 15, showSizeChanger: false }}
               rowSelection={{
