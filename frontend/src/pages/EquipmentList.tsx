@@ -151,34 +151,39 @@ export default function EquipmentList() {
     setSearchHistory(newHistory)
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
 
-    const eqList = await api.equipment.list({
-      keyword: params.name || undefined,
-      buildingCategories: params.buildings.length ? params.buildings : undefined,
-      yearStart: params.yearStart,
-      yearEnd: params.yearEnd,
-    })
-
-    let rows: EquipmentRow[] = eqList.map(eq => ({
-      ...eq,
-      inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
-    }))
-
-    // AND 邏輯：所有非空關鍵字都必須符合
-    const keywords = [params.name, params.keyword2, params.keyword3]
-      .map(k => k?.trim().toLowerCase()).filter(Boolean) as string[]
-    if (keywords.length > 0) {
-      rows = rows.filter(r => {
-        const text = [r.name, r.manufacturer, r.model, r.specDetail, r.notes, r.publicWorkCode, r.origin]
-          .join(' ').toLowerCase()
-        return keywords.every(kw => text.includes(kw))
+    try {
+      const eqList = await api.equipment.list({
+        keyword: params.name || undefined,
+        buildingCategories: params.buildings.length ? params.buildings : undefined,
+        yearStart: params.yearStart,
+        yearEnd: params.yearEnd,
       })
-    }
 
-    if (params.publicWorkCode?.trim()) {
-      const code = params.publicWorkCode.trim().toLowerCase()
-      rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
+      let rows: EquipmentRow[] = eqList.map(eq => ({
+        ...eq,
+        inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
+      }))
+
+      // AND 邏輯：所有非空關鍵字都必須符合
+      const keywords = [params.name, params.keyword2, params.keyword3]
+        .map(k => k?.trim().toLowerCase()).filter(Boolean) as string[]
+      if (keywords.length > 0) {
+        rows = rows.filter(r => {
+          const text = [r.name, r.manufacturer, r.model, r.specDetail, r.notes, r.publicWorkCode, r.origin]
+            .join(' ').toLowerCase()
+          return keywords.every(kw => text.includes(kw))
+        })
+      }
+
+      if (params.publicWorkCode?.trim()) {
+        const code = params.publicWorkCode.trim().toLowerCase()
+        rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
+      }
+      setData(rows)
+    } catch (e: any) {
+      message.error(e?.message ?? '查詢失敗，請稍後再試')
+      setData([])
     }
-    setData(rows)
     setLoading(false)
   }
 

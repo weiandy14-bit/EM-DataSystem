@@ -25,7 +25,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (type) filters.push({ property: '設備類別', select: { equals: type } })
   if (status) filters.push({ property: '狀態', select: { equals: status } })
-  // keyword is handled post-query with flexible matching (see below)
+  if (keyword) filters.push({ property: '設備名稱', title: { contains: keyword } })
   if (buildingCategories.length) {
     filters.push({
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
