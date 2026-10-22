@@ -188,12 +188,16 @@ export default function EquipmentList() {
   }
 
   const handleConfirm = () => {
+    if (!selectedBuildings.length) {
+      message.warning('請至少勾選一個建築類別')
+      return
+    }
     if (!yearStart || !yearEnd) {
       message.warning('請選擇年度起訖範圍（起始與結束年度都需填寫）')
       return
     }
     if (!equipmentName.trim()) {
-      message.warning('請輸入設備名稱')
+      message.warning('請輸入設備名稱關鍵字')
       return
     }
     runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, keyword2, keyword3, publicWorkCode })

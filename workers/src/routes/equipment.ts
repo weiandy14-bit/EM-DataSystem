@@ -31,6 +31,8 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
+  if (yearStart) filters.push({ property: '安裝日期', date: { on_or_after: `${Number(yearStart) + 1911}-01-01` } })
+  if (yearEnd)   filters.push({ property: '安裝日期', date: { on_or_before: `${Number(yearEnd) + 1911}-12-31` } })
 
   const filter = filters.length === 0 ? undefined
     : filters.length === 1 ? filters[0]
@@ -41,26 +43,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
   ])
 
   let items = pages.map(pageToEquipment)
-
-  // Flexible keyword filter: exact substring OR all individual chars present
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    items = items.filter(e => {
-      const text = [e.name, e.manufacturer, e.model, e.specDetail, e.notes, e.publicWorkCode].join(' ').toLowerCase()
-      return text.includes(kw) || [...kw].every(c => text.includes(c))
-    })
-  }
-
-  // Post-filter by year (Notion date filter is limited)
-  // Items without installDate are kept (don't exclude unknown dates)
-  if (yearStart) {
-    const gStart = Number(yearStart) + 1911
-    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() >= gStart)
-  }
-  if (yearEnd) {
-    const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() <= gEnd)
-  }
 
   return json(items)
 }
