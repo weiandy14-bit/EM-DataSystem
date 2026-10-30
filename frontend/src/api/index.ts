@@ -28,9 +28,18 @@ async function get<T>(path: string, params?: Record<string, string | string[] | 
   const token = sessionStorage.getItem('em_auth_token')
   const headers: Record<string, string> = {}
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(url.toString(), { headers })
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
-  return res.json()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 25000)
+  try {
+    const res = await fetch(url.toString(), { headers, signal: controller.signal })
+    clearTimeout(timer)
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    return res.json()
+  } catch (e: any) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') throw new Error('查詢逾時，請縮小搜尋範圍後再試')
+    throw e
+  }
 }
 
 function priceTrend(records: PricingRecord[]): PriceTrend[] {

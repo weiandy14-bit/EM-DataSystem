@@ -25,12 +25,14 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (type) filters.push({ property: '設備類別', select: { equals: type } })
   if (status) filters.push({ property: '狀態', select: { equals: status } })
-  // keyword is handled post-query with flexible matching (see below)
+  if (keyword) filters.push({ property: '設備名稱', title: { contains: keyword } })
   if (buildingCategories.length) {
     filters.push({
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
+  if (yearStart) filters.push({ property: '安裝日期', date: { on_or_after: `${Number(yearStart) + 1911}-01-01` } })
+  if (yearEnd)   filters.push({ property: '安裝日期', date: { on_or_before: `${Number(yearEnd) + 1911}-12-31` } })
 
   const filter = filters.length === 0 ? undefined
     : filters.length === 1 ? filters[0]
@@ -42,24 +44,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   let items = pages.map(pageToEquipment)
 
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    items = items.filter(e => {
-      const text = [e.name, e.manufacturer, e.model, e.specDetail, e.notes, e.publicWorkCode].join(' ').toLowerCase()
-      return text.includes(kw)
-    })
-  }
-
-  // Post-filter by year (Notion date filter is limited)
-  // Items without inquiryDate are kept (don't exclude unknown dates)
-  if (yearStart) {
-    const gStart = Number(yearStart) + 1911
-    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() >= gStart)
-  }
-  if (yearEnd) {
-    const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() <= gEnd)
-  }
 
   return json(items)
 }

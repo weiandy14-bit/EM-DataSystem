@@ -151,44 +151,53 @@ export default function EquipmentList() {
     setSearchHistory(newHistory)
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
 
-    const eqList = await api.equipment.list({
-      keyword: params.name || undefined,
-      buildingCategories: params.buildings.length ? params.buildings : undefined,
-      yearStart: params.yearStart,
-      yearEnd: params.yearEnd,
-    })
-
-    let rows: EquipmentRow[] = eqList.map(eq => ({
-      ...eq,
-      inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
-    }))
-
-    // AND 邏輯：所有非空關鍵字都必須符合
-    const keywords = [params.name, params.keyword2, params.keyword3]
-      .map(k => k?.trim().toLowerCase()).filter(Boolean) as string[]
-    if (keywords.length > 0) {
-      rows = rows.filter(r => {
-        const text = [r.name, r.manufacturer, r.model, r.specDetail, r.notes, r.publicWorkCode, r.origin]
-          .join(' ').toLowerCase()
-        return keywords.every(kw => text.includes(kw))
+    try {
+      const eqList = await api.equipment.list({
+        keyword: params.name || undefined,
+        buildingCategories: params.buildings.length ? params.buildings : undefined,
+        yearStart: params.yearStart,
+        yearEnd: params.yearEnd,
       })
-    }
 
-    if (params.publicWorkCode?.trim()) {
-      const code = params.publicWorkCode.trim().toLowerCase()
-      rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
+      let rows: EquipmentRow[] = eqList.map(eq => ({
+        ...eq,
+        inquiryYear: eq.inquiryDate ? new Date(eq.inquiryDate).getFullYear() : null,
+      }))
+
+      // AND 邏輯：所有非空關鍵字都必須符合
+      const keywords = [params.name, params.keyword2, params.keyword3]
+        .map(k => k?.trim().toLowerCase()).filter(Boolean) as string[]
+      if (keywords.length > 0) {
+        rows = rows.filter(r => {
+          const text = [r.name, r.manufacturer, r.model, r.specDetail, r.notes, r.publicWorkCode, r.origin]
+            .join(' ').toLowerCase()
+          return keywords.every(kw => text.includes(kw))
+        })
+      }
+
+      if (params.publicWorkCode?.trim()) {
+        const code = params.publicWorkCode.trim().toLowerCase()
+        rows = rows.filter(r => (r.publicWorkCode ?? '').toLowerCase().includes(code))
+      }
+      setData(rows)
+    } catch (e: any) {
+      message.error(e?.message ?? '查詢失敗，請稍後再試')
+      setData([])
     }
-    setData(rows)
     setLoading(false)
   }
 
   const handleConfirm = () => {
+    if (!selectedBuildings.length) {
+      message.warning('請至少勾選一個建築類別')
+      return
+    }
     if (!yearStart || !yearEnd) {
       message.warning('請選擇年度起訖範圍（起始與結束年度都需填寫）')
       return
     }
     if (!equipmentName.trim()) {
-      message.warning('請輸入設備名稱')
+      message.warning('請輸入設備名稱關鍵字')
       return
     }
     runSearch({ buildings: selectedBuildings, yearStart, yearEnd, name: equipmentName, keyword2, keyword3, publicWorkCode })
