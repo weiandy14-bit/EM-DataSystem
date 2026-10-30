@@ -44,6 +44,7 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   let items = pages.map(pageToEquipment)
 
+
   return json(items)
 }
 
