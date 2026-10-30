@@ -42,24 +42,23 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   let items = pages.map(pageToEquipment)
 
-  // Flexible keyword filter: exact substring OR all individual chars present
   if (keyword) {
     const kw = keyword.toLowerCase()
     items = items.filter(e => {
       const text = [e.name, e.manufacturer, e.model, e.specDetail, e.notes, e.publicWorkCode].join(' ').toLowerCase()
-      return text.includes(kw) || [...kw].every(c => text.includes(c))
+      return text.includes(kw)
     })
   }
 
   // Post-filter by year (Notion date filter is limited)
-  // Items without installDate are kept (don't exclude unknown dates)
+  // Items without inquiryDate are kept (don't exclude unknown dates)
   if (yearStart) {
     const gStart = Number(yearStart) + 1911
-    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() >= gStart)
+    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() >= gStart)
   }
   if (yearEnd) {
     const gEnd = Number(yearEnd) + 1911
-    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() <= gEnd)
+    items = items.filter(e => !e.inquiryDate || new Date(e.inquiryDate).getFullYear() <= gEnd)
   }
 
   return json(items)

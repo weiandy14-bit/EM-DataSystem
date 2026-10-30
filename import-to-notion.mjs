@@ -170,6 +170,36 @@ function parseExcel(filePath) {
   return result
 }
 
+// ─── 讀取 Notion 現有資料，建立去重 Set ──────────────────────
+function makeKey(name, building, caseCode) {
+  return [String(name || '').trim(), String(building || '').trim(), String(caseCode || '').trim()].join('||')
+}
+
+async function loadExistingKeys() {
+  const keys = new Set()
+  let cursor
+  let page = 0
+  process.stdout.write('正在讀取 Notion 現有資料...')
+  do {
+    const body = { page_size: 100 }
+    if (cursor) body.start_cursor = cursor
+    const res = await withRetry(() => notion.databases.query({ database_id: EQUIPMENT_DB, ...body }))
+    for (const p of res.results) {
+      const props = p.properties
+      const name = props['設備名稱']?.title?.map(t => t.plain_text).join('').trim() || ''
+      const building = props['建築類別']?.select?.name || ''
+      const caseCode = props['案件工號']?.rich_text?.map(t => t.plain_text).join('').trim() || ''
+      keys.add(makeKey(name, building, caseCode))
+    }
+    cursor = res.has_more ? res.next_cursor : undefined
+    page++
+    process.stdout.write(`.`)
+    if (cursor) await sleep(RATE_LIMIT_MS)
+  } while (cursor)
+  console.log(` 共 ${keys.size} 筆已存在`)
+  return keys
+}
+
 // ─── 主程式 ───────────────────────────────────────────────
 async function main() {
   const folder = process.argv[2]
@@ -184,7 +214,10 @@ async function main() {
 
   console.log(`找到 ${files.length} 個 Excel 檔案`)
 
-  let totalRows = 0, success = 0, failed = 0
+  // 先讀取現有資料
+  const existingKeys = await loadExistingKeys()
+
+  let totalRows = 0, success = 0, skipped = 0, failed = 0
 
   for (const [fi, filePath] of files.entries()) {
     const fileName = path.basename(filePath)
@@ -193,10 +226,20 @@ async function main() {
 
     for (const [ri, row] of rows.entries()) {
       totalRows++
+      const key = makeKey(row.設備名稱, row.建築類別, row.案件工號)
+
+      // 已存在則跳過
+      if (existingKeys.has(key)) {
+        skipped++
+        process.stdout.write(`  ⏭  [${ri+1}/${rows.length}] 已存在，跳過：${row.設備名稱}\r`)
+        continue
+      }
+
       try {
         // 建立 Equipment
         await sleep(RATE_LIMIT_MS)
         const eqId = await withRetry(() => createEquipment(row))
+        existingKeys.add(key) // 避免同批 Excel 內也重複
 
         // 建立 PricingRecord（只在有報價資訊時建立）
         if (row.單價 || row.報價日期 || row.供應商) {
@@ -214,7 +257,7 @@ async function main() {
   }
 
   console.log(`\n\n========== 完成 ==========`)
-  console.log(`總計 ${totalRows} 筆 | 成功 ${success} | 失敗 ${failed}`)
+  console.log(`總計 ${totalRows} 筆 | 新增 ${success} | 跳過(已存在) ${skipped} | 失敗 ${failed}`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
