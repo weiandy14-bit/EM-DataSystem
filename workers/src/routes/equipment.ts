@@ -31,9 +31,6 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
     })
   }
-  if (yearStart) filters.push({ property: '安裝日期', date: { on_or_after: `${Number(yearStart) + 1911}-01-01` } })
-  if (yearEnd)   filters.push({ property: '安裝日期', date: { on_or_before: `${Number(yearEnd) + 1911}-12-31` } })
-
   const filter = filters.length === 0 ? undefined
     : filters.length === 1 ? filters[0]
     : { and: filters }
@@ -44,6 +41,16 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   let items = pages.map(pageToEquipment)
 
+  // Year filtering done post-query: Notion date filter excludes records with no date,
+  // but we want to keep records where installDate is not set.
+  if (yearStart) {
+    const gStart = Number(yearStart) + 1911
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() >= gStart)
+  }
+  if (yearEnd) {
+    const gEnd = Number(yearEnd) + 1911
+    items = items.filter(e => !e.installDate || new Date(e.installDate).getFullYear() <= gEnd)
+  }
 
   return json(items)
 }
