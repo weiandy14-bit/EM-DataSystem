@@ -34,7 +34,11 @@ async function get<T>(path: string, params?: Record<string, string | string[] | 
   try {
     const res = await fetch(url.toString(), { headers, signal: controller.signal })
     clearTimeout(timer)
-    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    if (!res.ok) {
+      let detail = ''
+      try { const body = await res.json(); detail = body.error ?? '' } catch { /* ignore */ }
+      throw new Error(`API error ${res.status}: ${path}${detail ? ` — ${detail}` : ''}`)
+    }
     return res.json()
   } catch (e: any) {
     clearTimeout(timer)
