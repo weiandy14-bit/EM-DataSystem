@@ -6,7 +6,7 @@ export async function handleBrands(req: Request, env: Env): Promise<Response> {
   const keyword = url.searchParams.get('keyword')
 
   const filters: any[] = []
-  if (category) filters.push({ property: '類別', rich_text: { equals: category } })
+  if (category) filters.push({ property: '類別', select: { equals: category } })
   if (keyword) {
     filters.push({
       or: [

@@ -74,7 +74,8 @@ export default {
       return addCors(res)
     } catch (err) {
       console.error(err)
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      const msg = err instanceof Error ? err.message : 'Internal server error'
+      return new Response(JSON.stringify({ error: msg }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
