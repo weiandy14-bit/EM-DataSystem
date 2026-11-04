@@ -72,6 +72,26 @@ export interface InspectionRecord {
   inspector: string
 }
 
+export interface BrandMaster {
+  id: string
+  brandName: string
+  productName: string
+  category: string
+  grade: string
+  origin: string
+  sort: number
+}
+
+export interface BrandReport {
+  id: string
+  reportName: string
+  projectCode: string
+  category: string
+  selections: Record<string, string[]>
+  createdDate: string
+  notes: string
+}
+
 export interface PriceTrend {
   year: number
   avgPrice: number

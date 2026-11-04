@@ -5,6 +5,8 @@ export interface Env {
   NOTION_DB_SPECIFICATIONS: string
   NOTION_DB_PRICING: string
   NOTION_DB_INSPECTIONS: string
+  NOTION_DB_BRAND_MASTER: string
+  NOTION_DB_BRAND_REPORTS: string
   AUTH_KV: KVNamespace
 }
 
@@ -160,4 +162,51 @@ export function pageToInspectionRecord(page: any) {
     findings: getText(p['發現事項']),
     inspector: getText(p['驗收人員']),
   }
+}
+
+export function pageToBrandMaster(page: any) {
+  const p = page.properties
+  return {
+    id: page.id,
+    brandName: getText(p['廠牌名稱']),
+    productName: getText(p['品名']),
+    category: getSelect(p['類別']),
+    grade: getSelect(p['廠牌等級']),
+    origin: getText(p['產地']),
+    sort: getNumber(p['排序']),
+  }
+}
+
+export function pageToBrandReport(page: any) {
+  const p = page.properties
+  const selectionsStr = getText(p['選定廠牌清單'])
+  let selections: Record<string, string[]> = {}
+  try { selections = JSON.parse(selectionsStr) } catch { /* ignore */ }
+  return {
+    id: page.id,
+    reportName: getText(p['報表名稱']),
+    projectCode: getText(p['案件工號']),
+    category: getSelect(p['類別']),
+    selections,
+    createdDate: getDate(p['建立日期']),
+    notes: getText(p['備註']),
+  }
+}
+
+export async function createBrandReport(
+  env: Env,
+  data: { reportName: string; projectCode: string; category: string; selections: Record<string, string[]>; notes?: string }
+) {
+  const body = {
+    parent: { database_id: env.NOTION_DB_BRAND_REPORTS },
+    properties: {
+      '報表名稱': { title: [{ text: { content: data.reportName } }] },
+      '案件工號': { rich_text: [{ text: { content: data.projectCode } }] },
+      '類別': { select: { name: data.category } },
+      '選定廠牌清單': { rich_text: [{ text: { content: JSON.stringify(data.selections) } }] },
+      '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
+      '備註': { rich_text: [{ text: { content: data.notes ?? '' } }] },
+    },
+  }
+  return notionRequest(env, 'POST', '/pages', body)
 }
