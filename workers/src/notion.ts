@@ -166,14 +166,21 @@ export function pageToInspectionRecord(page: any) {
 
 export function pageToBrandMaster(page: any) {
   const p = page.properties
+  const brandCols: Array<[string, string]> = [
+    ['國內A1', '國內A'], ['國內A2', '國內A'], ['國內A3', '國內A'],
+    ['國內B1', '國內B'], ['國內B2', '國內B'], ['國內B3', '國內B'],
+    ['國外A1', '國外A'], ['國外A2', '國外A'], ['國外A3', '國外A'],
+  ]
+  const brands: Array<{ name: string; grade: string }> = []
+  for (const [col, grade] of brandCols) {
+    const name = getText(p[col])
+    if (name) brands.push({ name, grade })
+  }
   return {
     id: page.id,
-    brandName: getText(p['廠牌名稱']),
-    productName: getText(p['品名']),
-    category: getSelect(p['類別']),
-    grade: getSelect(p['廠牌等級']),
-    origin: getText(p['產地']),
-    sort: getNumber(p['排序']),
+    productName: getText(p['產品項目']),
+    category: getSelect(p['分類']),
+    brands,
   }
 }
 

@@ -72,14 +72,16 @@ export interface InspectionRecord {
   inspector: string
 }
 
+export interface BrandItem {
+  name: string
+  grade: string
+}
+
 export interface BrandMaster {
   id: string
-  brandName: string
   productName: string
   category: string
-  grade: string
-  origin: string
-  sort: number
+  brands: BrandItem[]
 }
 
 export interface BrandReport {

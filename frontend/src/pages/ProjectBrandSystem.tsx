@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Tabs, Spin, Alert, Button, Checkbox, Input, Select,
-  Table, Tag, Space, Collapse, Typography, message, Empty, Card, Row, Col,
+  Table, Tag, Space, Collapse, Typography, message, Empty, Card,
 } from 'antd'
 import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
@@ -11,13 +11,15 @@ import type { BrandMaster, BrandReport } from '../types'
 
 const { Title, Text } = Typography
 
-const CATEGORIES = ['消防', '空調', '電氣', '弱電', '給排水', '其他']
+const CATEGORIES = ['消防', '空調', '電力', '弱電', '給排水', '其他']
 
-type SelectionMap = Record<string, Record<string, boolean>>
+// category → productId → brandName → selected
+type SelectionMap = Record<string, Record<string, Record<string, boolean>>>
 
 function gradeColor(grade: string) {
-  if (grade.includes('國外')) return 'gold'
-  if (grade.includes('國內')) return 'green'
+  if (grade === '國外A') return 'gold'
+  if (grade === '國內A') return 'green'
+  if (grade === '國內B') return 'blue'
   return 'default'
 }
 
@@ -31,83 +33,70 @@ function BrandSelectorTab({
   category: string
   brands: BrandMaster[]
   selections: SelectionMap
-  onToggle: (productName: string, brandName: string, checked: boolean) => void
+  onToggle: (category: string, productId: string, brandName: string, checked: boolean) => void
 }) {
   const [keyword, setKeyword] = useState('')
 
-  const byProduct = useMemo(() => {
-    const map: Record<string, BrandMaster[]> = {}
-    for (const b of brands) {
-      if (!map[b.productName]) map[b.productName] = []
-      map[b.productName].push(b)
-    }
-    return map
-  }, [brands])
-
-  const filteredProducts = useMemo(() => {
+  const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
-    if (!kw) return Object.entries(byProduct)
-    return Object.entries(byProduct).filter(
-      ([product, list]) =>
-        product.toLowerCase().includes(kw) ||
-        list.some(b => b.brandName.toLowerCase().includes(kw))
+    if (!kw) return brands
+    return brands.filter(
+      p => p.productName.toLowerCase().includes(kw) ||
+        p.brands.some(b => b.name.toLowerCase().includes(kw))
     )
-  }, [byProduct, keyword])
+  }, [brands, keyword])
 
-  const selectedCount = Object.values(selections[category] ?? {}).filter(Boolean).length
+  const catSel = selections[category] ?? {}
+  const selectedCount = Object.values(catSel).reduce(
+    (acc, prodSel) => acc + Object.values(prodSel).filter(Boolean).length, 0
+  )
 
   return (
     <div>
-      <Row gutter={8} style={{ marginBottom: 12 }}>
-        <Col flex="auto">
-          <Input
-            prefix={<SearchOutlined />}
-            placeholder="搜尋品名或廠牌"
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            allowClear
-          />
-        </Col>
-        <Col>
-          <Text type="secondary">已選 {selectedCount} 項</Text>
-        </Col>
-      </Row>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Input
+          prefix={<SearchOutlined />}
+          placeholder="搜尋品名或廠牌"
+          value={keyword}
+          onChange={e => setKeyword(e.target.value)}
+          allowClear
+          style={{ flex: 1 }}
+        />
+        <Text type="secondary">已選 {selectedCount} 項</Text>
+      </div>
 
-      {filteredProducts.length === 0 ? (
+      {filtered.length === 0 ? (
         <Empty description="無資料" />
       ) : (
         <Collapse
           size="small"
-          defaultActiveKey={filteredProducts.slice(0, 3).map(([p]) => p)}
-          items={filteredProducts.map(([product, brandList]) => {
-            const catSel = selections[category] ?? {}
-            const selectedInProduct = brandList.filter(b => catSel[b.brandName]).length
+          defaultActiveKey={filtered.slice(0, 3).map(p => p.id)}
+          items={filtered.map(product => {
+            const prodSel = catSel[product.id] ?? {}
+            const selectedInProduct = Object.values(prodSel).filter(Boolean).length
             return {
-              key: product,
+              key: product.id,
               label: (
                 <Space>
-                  <Text strong>{product}</Text>
+                  <Text strong>{product.productName}</Text>
                   {selectedInProduct > 0 && (
-                    <Tag color="blue">{selectedInProduct} 廠牌已選</Tag>
+                    <Tag color="blue">{selectedInProduct} 項已選</Tag>
                   )}
                 </Space>
               ),
               children: (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                  {brandList.map(b => (
+                  {product.brands.map(b => (
                     <Checkbox
-                      key={b.id}
-                      checked={!!(catSel[b.brandName])}
-                      onChange={e => onToggle(product, b.brandName, e.target.checked)}
+                      key={b.name}
+                      checked={!!(prodSel[b.name])}
+                      onChange={e => onToggle(category, product.id, b.name, e.target.checked)}
                     >
                       <Space size={4}>
-                        <span>{b.brandName}</span>
+                        <span>{b.name}</span>
                         <Tag color={gradeColor(b.grade)} style={{ fontSize: 10, margin: 0 }}>
                           {b.grade}
                         </Tag>
-                        {b.origin && (
-                          <Text type="secondary" style={{ fontSize: 11 }}>({b.origin})</Text>
-                        )}
                       </Space>
                     </Checkbox>
                   ))}
@@ -132,28 +121,20 @@ function ReportPreview({
   selections: SelectionMap
 }) {
   const catSel = selections[category] ?? {}
-  const byProduct = useMemo(() => {
-    const map: Record<string, BrandMaster[]> = {}
-    for (const b of brands) {
-      if (!map[b.productName]) map[b.productName] = []
-      map[b.productName].push(b)
-    }
-    return map
-  }, [brands])
 
   const rows = useMemo(() =>
-    Object.entries(byProduct)
-      .map(([product, list]) => ({
-        product,
-        selected: list.filter(b => catSel[b.brandName]).map(b => b.brandName),
+    brands
+      .map(product => ({
+        product: product.productName,
+        selected: product.brands
+          .filter(b => catSel[product.id]?.[b.name])
+          .map(b => ({ name: b.name, grade: b.grade })),
       }))
       .filter(r => r.selected.length > 0),
-    [byProduct, catSel]
+    [brands, catSel]
   )
 
-  if (rows.length === 0) {
-    return <Empty description="尚未選擇任何廠牌" />
-  }
+  if (rows.length === 0) return <Empty description="尚未選擇任何廠牌" />
 
   const columns = [
     { title: '品名', dataIndex: 'product', key: 'product', width: '40%' },
@@ -161,9 +142,11 @@ function ReportPreview({
       title: '選定廠牌',
       dataIndex: 'selected',
       key: 'selected',
-      render: (brands: string[]) => (
+      render: (items: Array<{ name: string; grade: string }>) => (
         <Space wrap>
-          {brands.map(b => <Tag key={b} color="green">{b}</Tag>)}
+          {items.map(b => (
+            <Tag key={b.name} color={gradeColor(b.grade)}>{b.name}</Tag>
+          ))}
         </Space>
       ),
     },
@@ -186,25 +169,17 @@ function HistoryPanel({ projectCode }: { projectCode: string }) {
   const [reports, setReports] = useState<BrandReport[]>([])
   const [loading, setLoading] = useState(false)
 
-  const load = async () => {
+  useEffect(() => {
     if (!projectCode.trim()) return
     setLoading(true)
-    try {
-      const data = await api.brandReports.list({ projectCode: projectCode.trim() })
-      setReports(data)
-    } catch {
-      message.error('載入歷史記錄失敗')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { load() }, [projectCode])
+    api.brandReports.list({ projectCode: projectCode.trim() })
+      .then(setReports)
+      .catch(() => message.error('載入歷史記錄失敗'))
+      .finally(() => setLoading(false))
+  }, [projectCode])
 
   if (!projectCode.trim()) return <Text type="secondary">請輸入案件工號以查詢歷史記錄</Text>
-
   if (loading) return <Spin />
-
   if (reports.length === 0) return <Empty description="無歷史記錄" />
 
   return (
@@ -241,69 +216,57 @@ export default function ProjectBrandSystem() {
   const [mainTab, setMainTab] = useState<'select' | 'preview' | 'history'>('select')
 
   useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const results = await Promise.all(
-          CATEGORIES.map(cat => api.brands.list({ category: cat }).then(list => [cat, list] as const))
-        )
-        setBrandsMap(Object.fromEntries(results))
-      } catch (e: any) {
-        setError(e.message ?? '載入廠牌資料失敗')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchAll()
+    setLoading(true)
+    setError('')
+    Promise.all(
+      CATEGORIES.map(cat => api.brands.list({ category: cat }).then(list => [cat, list] as const))
+    )
+      .then(results => setBrandsMap(Object.fromEntries(results)))
+      .catch((e: any) => setError(e.message ?? '載入廠牌資料失敗'))
+      .finally(() => setLoading(false))
   }, [])
 
-  const handleToggle = (category: string, _productName: string, brandName: string, checked: boolean) => {
+  const handleToggle = (category: string, productId: string, brandName: string, checked: boolean) => {
     setSelections(prev => ({
       ...prev,
       [category]: {
         ...(prev[category] ?? {}),
-        [brandName]: checked,
+        [productId]: {
+          ...(prev[category]?.[productId] ?? {}),
+          [brandName]: checked,
+        },
       },
     }))
   }
 
   const totalSelected = useMemo(
-    () => Object.values(selections).flatMap(Object.values).filter(Boolean).length,
+    () => Object.values(selections).reduce(
+      (acc, catSel) => acc + Object.values(catSel).reduce(
+        (a, prodSel) => a + Object.values(prodSel).filter(Boolean).length, 0
+      ), 0
+    ),
     [selections]
   )
 
   const handleSave = async () => {
-    if (!projectCode.trim()) {
-      message.warning('請輸入案件工號')
-      return
-    }
-    if (totalSelected === 0) {
-      message.warning('請至少選擇一個廠牌')
-      return
-    }
+    if (!projectCode.trim()) { message.warning('請輸入案件工號'); return }
+    if (totalSelected === 0) { message.warning('請至少選擇一個廠牌'); return }
 
     const categoriesToSave = CATEGORIES.filter(cat => {
       const catSel = selections[cat] ?? {}
-      return Object.values(catSel).some(Boolean)
+      return Object.values(catSel).some(p => Object.values(p).some(Boolean))
     })
-
-    if (categoriesToSave.length === 0) {
-      message.warning('無已選廠牌可儲存')
-      return
-    }
+    if (categoriesToSave.length === 0) { message.warning('無已選廠牌可儲存'); return }
 
     setSaving(true)
     try {
       await Promise.all(categoriesToSave.map(cat => {
         const catSel = selections[cat] ?? {}
-        const brands = brandsMap[cat] ?? []
         const byProduct: Record<string, string[]> = {}
-        for (const b of brands) {
-          if (catSel[b.brandName]) {
-            if (!byProduct[b.productName]) byProduct[b.productName] = []
-            byProduct[b.productName].push(b.brandName)
-          }
+        for (const product of brandsMap[cat] ?? []) {
+          const selected = Object.entries(catSel[product.id] ?? {})
+            .filter(([, v]) => v).map(([k]) => k)
+          if (selected.length > 0) byProduct[product.productName] = selected
         }
         return api.brandReports.create({
           reportName: `${projectCode}-${cat}`,
@@ -329,9 +292,7 @@ export default function ProjectBrandSystem() {
     )
   }
 
-  if (error) {
-    return <Alert type="error" message={error} style={{ margin: 24 }} />
-  }
+  if (error) return <Alert type="error" message={error} style={{ margin: 24 }} />
 
   const mainTabItems = [
     {
@@ -365,7 +326,6 @@ export default function ProjectBrandSystem() {
               </Button>
             </Space>
           </div>
-
           <Tabs
             activeKey={activeCategory}
             onChange={setActiveCategory}
@@ -375,9 +335,11 @@ export default function ProjectBrandSystem() {
               label: (
                 <Space size={4}>
                   {cat}
-                  {Object.values(selections[cat] ?? {}).filter(Boolean).length > 0 && (
+                  {Object.values(selections[cat] ?? {}).some(p => Object.values(p).some(Boolean)) && (
                     <Tag color="blue" style={{ margin: 0 }}>
-                      {Object.values(selections[cat] ?? {}).filter(Boolean).length}
+                      {Object.values(selections[cat] ?? {}).reduce(
+                        (a, p) => a + Object.values(p).filter(Boolean).length, 0
+                      )}
                     </Tag>
                   )}
                 </Space>
@@ -387,7 +349,7 @@ export default function ProjectBrandSystem() {
                   category={cat}
                   brands={brandsMap[cat] ?? []}
                   selections={selections}
-                  onToggle={(product, brand, checked) => handleToggle(cat, product, brand, checked)}
+                  onToggle={handleToggle}
                 />
               ),
             }))}
@@ -397,12 +359,7 @@ export default function ProjectBrandSystem() {
     },
     {
       key: 'preview',
-      label: (
-        <Space>
-          <FileTextOutlined />
-          預覽廠牌表
-        </Space>
-      ),
+      label: <Space><FileTextOutlined />預覽廠牌表</Space>,
       children: (
         <div>
           <div style={{ marginBottom: 12 }}>
@@ -427,12 +384,7 @@ export default function ProjectBrandSystem() {
     },
     {
       key: 'history',
-      label: (
-        <Space>
-          <HistoryOutlined />
-          歷史查詢
-        </Space>
-      ),
+      label: <Space><HistoryOutlined />歷史查詢</Space>,
       children: (
         <div>
           <div style={{ marginBottom: 12 }}>
@@ -461,7 +413,6 @@ export default function ProjectBrandSystem() {
           <Text type="secondary">依類別選擇廠牌，生成案件廠牌表，並儲存歷史記錄</Text>
         </div>
       </div>
-
       <Tabs
         activeKey={mainTab}
         onChange={k => setMainTab(k as typeof mainTab)}
