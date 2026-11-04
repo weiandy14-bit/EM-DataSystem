@@ -170,8 +170,8 @@ export function pageToBrandMaster(page: any) {
     id: page.id,
     brandName: getText(p['廠牌名稱']),
     productName: getText(p['品名']),
-    category: getText(p['類別']) || getSelect(p['類別']),
-    grade: getText(p['廠牌等級']) || getSelect(p['廠牌等級']),
+    category: getSelect(p['類別']),
+    grade: getSelect(p['廠牌等級']),
     origin: getText(p['產地']),
     sort: getNumber(p['排序']),
   }
