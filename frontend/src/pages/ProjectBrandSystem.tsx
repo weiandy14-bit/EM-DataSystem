@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  Tabs, Spin, Alert, Button, Checkbox, Input, Form, Select,
-  Table, Tag, Space, Collapse, Typography, Divider, message, Empty, Card, Row, Col,
+  Tabs, Spin, Alert, Button, Checkbox, Input, Select,
+  Table, Tag, Space, Collapse, Typography, message, Empty, Card, Row, Col,
 } from 'antd'
 import {
-  SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined, ReloadOutlined,
+  SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type { BrandMaster, BrandReport } from '../types'
@@ -258,7 +258,7 @@ export default function ProjectBrandSystem() {
     fetchAll()
   }, [])
 
-  const handleToggle = (category: string, productName: string, brandName: string, checked: boolean) => {
+  const handleToggle = (category: string, _productName: string, brandName: string, checked: boolean) => {
     setSelections(prev => ({
       ...prev,
       [category]: {
