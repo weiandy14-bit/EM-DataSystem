@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { Layout, Typography, Button, Space, Tag, Modal, Spin } from 'antd'
 import { FilePdfOutlined, LogoutOutlined, TeamOutlined } from '@ant-design/icons'
 import EquipmentList from './pages/EquipmentList'
 import Login from './pages/Login'
 import UserManagement from './pages/UserManagement'
+import Hub from './pages/Hub'
+import ProjectBrandSystem from './pages/ProjectBrandSystem'
 import { exportRef } from './exportManager'
 import { logout, getCurrentUser } from './auth'
 import type { AuthUser } from './auth'
@@ -13,6 +15,8 @@ const { Header, Content } = Layout
 
 function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isEquipmentPage = location.pathname === '/equipment'
 
   const handleLogout = () => {
     Modal.confirm({
@@ -43,13 +47,15 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
           <Tag color="rgba(255,255,255,0.2)" style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.3)', marginRight: 4 }}>
             {user.username}
           </Tag>
-          <Button
-            icon={<FilePdfOutlined />}
-            onClick={() => exportRef.current?.()}
-            style={{ borderColor: 'rgba(255,255,255,0.5)', color: '#fff', background: 'transparent' }}
-          >
-            匯出 PDF
-          </Button>
+          {isEquipmentPage && (
+            <Button
+              icon={<FilePdfOutlined />}
+              onClick={() => exportRef.current?.()}
+              style={{ borderColor: 'rgba(255,255,255,0.5)', color: '#fff', background: 'transparent' }}
+            >
+              匯出 PDF
+            </Button>
+          )}
           {user.role === 'admin' && (
             <Button
               icon={<TeamOutlined />}
@@ -71,9 +77,11 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
 
       <Content style={{ padding: '20px 24px', background: '#F8FAFC', overflow: 'auto' }}>
         <Routes>
-          <Route path="/" element={<EquipmentList />} />
+          <Route path="/" element={<Hub />} />
+          <Route path="/equipment" element={<EquipmentList />} />
+          <Route path="/brand-system" element={<ProjectBrandSystem />} />
           {user.role === 'admin' && <Route path="/users" element={<UserManagement />} />}
-          <Route path="*" element={<EquipmentList />} />
+          <Route path="*" element={<Hub />} />
         </Routes>
       </Content>
     </Layout>
