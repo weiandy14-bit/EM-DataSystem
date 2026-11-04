@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button, Collapse, Checkbox, Select, AutoComplete, Input, Slider, Table, Drawer, Tabs, Tag, Space, Descriptions, Typography, message, Modal, Tooltip, Spin } from 'antd'
 import { FilterOutlined, CopyOutlined, BarChartOutlined, FilePdfOutlined, DownloadOutlined, HistoryOutlined, HolderOutlined, PieChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { api } from '../api'
-import type { Equipment, Specification, PricingRecord } from '../types'
+import type { Equipment, Specification } from '../types'
 import SpecHistory from '../components/SpecHistory'
 import { exportRef } from '../exportManager'
 import EquipmentDashboard from '../components/EquipmentDashboard'
@@ -80,7 +80,6 @@ export default function EquipmentList() {
 
   const [selected, setSelected] = useState<EquipmentRow>()
   const [specs, setSpecs] = useState<Specification[]>([])
-  const [prices, setPrices] = useState<PricingRecord[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
@@ -345,12 +344,8 @@ export default function EquipmentList() {
   const openDetail = async (eq: EquipmentRow) => {
     setSelected(eq)
     setDetailLoading(true)
-    const [sp, pr] = await Promise.all([
-      api.specs.list('equipment', eq.id),
-      api.pricing.list('equipment', eq.id),
-    ])
+    const sp = await api.specs.list('equipment', eq.id)
     setSpecs(sp)
-    setPrices(pr)
     setDetailLoading(false)
   }
 
@@ -798,33 +793,6 @@ export default function EquipmentList() {
               ),
             },
             { key: 'specs', label: `規格歷史（${specs.length}版）`, children: detailLoading ? <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div> : <SpecHistory specs={specs} /> },
-            {
-              key: 'prices', label: `報價紀錄（${prices.length}筆）`,
-              children: detailLoading ? <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div> : (() => {
-                const sorted = [...prices].sort((a, b) => a.priceDate.localeCompare(b.priceDate))
-                return (
-                  <Table size="small" dataSource={sorted} rowKey="id"
-                    pagination={{ pageSize: 10, showSizeChanger: false }}
-                    columns={[
-                      { title: '日期', dataIndex: 'priceDate', key: 'date', width: 120 },
-                      {
-                        title: '金額（元）', dataIndex: 'price', key: 'price',
-                        render: (v: number) => <span style={{ fontWeight: 600, color: '#1677ff' }}>{v.toLocaleString('zh-TW')}</span>,
-                      },
-                      {
-                        title: '漲跌幅', key: 'change', width: 90,
-                        render: (_: unknown, r: PricingRecord, idx: number) => {
-                          if (idx === 0) return <span style={{ color: '#999' }}>—</span>
-                          const pct = (r.price - sorted[idx - 1].price) / sorted[idx - 1].price * 100
-                          const color = pct > 0 ? '#f5222d' : pct < 0 ? '#52c41a' : '#999'
-                          return <span style={{ color }}>{pct > 0 ? '+' : ''}{pct.toFixed(1)}%</span>
-                        },
-                      },
-                    ]}
-                  />
-                )
-              })(),
-            },
           ]} />
         )}
       </Drawer>
