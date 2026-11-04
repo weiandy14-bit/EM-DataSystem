@@ -12,7 +12,7 @@ import type { BrandMaster, BrandReport } from '../types'
 
 const { Title, Text } = Typography
 
-const CATEGORIES = ['消防', '空調', '電力', '弱電', '給排水', '其他']
+const CATEGORIES = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 const PREVIEW_ORDER = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 
 
