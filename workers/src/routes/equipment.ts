@@ -25,7 +25,16 @@ export async function handleEquipment(req: Request, env: Env, path: string): Pro
 
   if (type) filters.push({ property: '設備類別', select: { equals: type } })
   if (status) filters.push({ property: '狀態', select: { equals: status } })
-  if (keyword) filters.push({ property: '設備名稱', title: { contains: keyword } })
+  if (keyword) filters.push({
+    or: [
+      { property: '設備名稱', title: { contains: keyword } },
+      { property: '型號', rich_text: { contains: keyword } },
+      { property: '廠牌', rich_text: { contains: keyword } },
+      { property: '規格細項', rich_text: { contains: keyword } },
+      { property: '備註', rich_text: { contains: keyword } },
+      { property: '特殊項目', rich_text: { contains: keyword } },
+    ]
+  })
   if (buildingCategories.length) {
     filters.push({
       or: buildingCategories.map(c => ({ property: '建築類別', select: { equals: c } }))
