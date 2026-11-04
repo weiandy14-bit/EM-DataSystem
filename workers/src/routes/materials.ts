@@ -21,6 +21,7 @@ export async function handleMaterials(req: Request, env: Env, path: string): Pro
   if (keyword) filters.push({
     or: [
       { property: '材料名稱', title: { contains: keyword } },
+      { property: '等級規格', rich_text: { contains: keyword } },
       { property: '供應商', rich_text: { contains: keyword } },
     ]
   })
