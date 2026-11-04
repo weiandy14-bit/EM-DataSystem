@@ -15,52 +15,6 @@ const { Title, Text } = Typography
 const CATEGORIES = ['消防', '空調', '電力', '弱電', '給排水', '其他']
 const PREVIEW_ORDER = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 
-// Default display order for 電力 category (matches the standard spec sheet sequence)
-const POWER_ORDER = [
-  '高低壓配電盤',
-  '瞬間激磁式 ATS',
-  'RCSW BREAKER TYPE',
-  'TR低壓變壓器',
-  'MS電磁開關',
-  'Y+S 自動、手動切換開關',
-  '變頻器',
-  '保護電驛 / (ANSI 50/51, 51N, 27, / 59, 87 等)',
-  '盤頂式散熱器',
-  'CT 比流器 / PT 比壓器',
-  '功率因數調整計 (APFR)',
-  'SC 電容器 (乾式) 440V',
-  '智慧過溫控制器',
-  'DPM 數位式集合電錶',
-  'PM 多迴路電表',
-  'SPD複合型突波保護器',
-  'UPS不斷電設備',
-  'UPS不斷電設備電池組',
-  'MCCB / NFB / ELCB',
-  'PVC 電線/電纜 / XLPE 電纜 / 耐燃電線電纜 / 裸銅線',
-  'PVC 聚氯乙烯塑膠導線管',
-  '電氣金屬導線管 / EMT、RSG管 CNS2606',
-  '開關、插座 含面板',
-  '陽台崁燈 LED 超薄型 / 紅外線自動感應燈 LED 壁掛or吸頂型 / 浴室崁燈 LED 超薄型',
-  '機房吸頂or壁掛燈 T5 LED / 停車場吸頂or吊桿燈 T5 LED / 停車場(車道)吸頂or吊桿燈 LED',
-  '二線式燈光控制設備及開關',
-  '模鑄型 BUSWAY (CU)',
-  '裝甲型 BUSWAY (CU)',
-  'BUSWAY 過溫保護設備',
-  '柴油引擎發電機組',
-  '沖孔式線架 / 密閉式燈槽',
-  '汽機車充電設備',
-]
-
-function orderByNames(brands: BrandMaster[], nameOrder: string[]): string[] {
-  const idx = new Map(nameOrder.map((n, i) => [n, i]))
-  return [...brands]
-    .sort((a, b) => {
-      const ai = idx.get(a.productName) ?? Infinity
-      const bi = idx.get(b.productName) ?? Infinity
-      return ai !== bi ? ai - bi : a.productName.localeCompare(b.productName)
-    })
-    .map(b => b.id)
-}
 
 // category → productId → brandName → selected
 type SelectionMap = Record<string, Record<string, Record<string, boolean>>>
@@ -432,9 +386,7 @@ export default function ProjectBrandSystem() {
         setBrandsMap(map)
         const initOrder: Record<string, string[]> = {}
         for (const [cat, list] of results) {
-          initOrder[cat] = cat === '電力'
-            ? orderByNames(list as BrandMaster[], POWER_ORDER)
-            : (list as BrandMaster[]).map(b => b.id)
+          initOrder[cat] = (list as BrandMaster[]).map(b => b.id)
         }
         setProductOrder(initOrder)
       })

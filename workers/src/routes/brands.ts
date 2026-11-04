@@ -16,6 +16,7 @@ export async function handleBrands(req: Request, env: Env): Promise<Response> {
     : { and: filters }
 
   const pages = await queryDatabase(env, env.NOTION_DB_BRAND_MASTER, filter, [
+    { property: '排序', direction: 'ascending' },
     { property: '產品項目', direction: 'ascending' },
   ])
 
