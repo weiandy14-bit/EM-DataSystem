@@ -8,7 +8,7 @@ export async function handleBrandReports(req: Request, env: Env, subpath: string
 
     const filters: any[] = []
     if (projectCode) filters.push({ property: '案件工號', rich_text: { contains: projectCode } })
-    if (category) filters.push({ property: '類別', select: { equals: category } })
+    if (category) filters.push({ property: '類別', rich_text: { equals: category } })
 
     const filter = filters.length === 0 ? undefined
       : filters.length === 1 ? filters[0]
