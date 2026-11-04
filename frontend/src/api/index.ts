@@ -1,6 +1,7 @@
 import type {
   Equipment, Material, Specification, PricingRecord,
-  InspectionRecord, PriceTrend, InspectionLookupResult, EntityType
+  InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
+  BrandMaster, BrandReport
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -170,6 +171,39 @@ export const api = {
         return mockPricing.filter(p => p.entityType === 'equipment')
       }
       return get<PricingRecord[]>('/pricing/allEquipmentRecords')
+    },
+  },
+
+  brands: {
+    list: async (filters?: { category?: string; keyword?: string }): Promise<BrandMaster[]> => {
+      return get<BrandMaster[]>('/brands', {
+        category: filters?.category,
+        keyword: filters?.keyword,
+      })
+    },
+  },
+
+  brandReports: {
+    list: async (filters?: { projectCode?: string; category?: string }): Promise<BrandReport[]> => {
+      return get<BrandReport[]>('/brand-reports', {
+        projectCode: filters?.projectCode,
+        category: filters?.category,
+      })
+    },
+    create: async (data: {
+      reportName: string
+      projectCode: string
+      category: string
+      selections: Record<string, string[]>
+      notes?: string
+    }): Promise<BrandReport> => {
+      const url = new URL(`${API_BASE}/brand-reports`, location.origin)
+      const token = sessionStorage.getItem('em_auth_token')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(url.toString(), { method: 'POST', headers, body: JSON.stringify(data) })
+      if (!res.ok) throw new Error(`API error ${res.status}`)
+      return res.json()
     },
   },
 

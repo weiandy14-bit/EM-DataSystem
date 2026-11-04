@@ -5,6 +5,8 @@ import { handleSpecs } from './routes/specs'
 import { handlePricing } from './routes/pricing'
 import { handleInspection } from './routes/inspection'
 import { handleAuth, handleUsers, verifySession } from './routes/auth'
+import { handleBrands } from './routes/brands'
+import { handleBrandReports } from './routes/brand-reports'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +61,11 @@ export default {
         } else if (path.startsWith('/api/inspection')) {
           const subpath = path.replace('/api/inspection', '') || '/'
           res = await handleInspection(req, env, subpath)
+        } else if (path.startsWith('/api/brands')) {
+          res = await handleBrands(req, env)
+        } else if (path.startsWith('/api/brand-reports')) {
+          const subpath = path.replace('/api/brand-reports', '') || '/'
+          res = await handleBrandReports(req, env, subpath)
         } else {
           res = new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
         }

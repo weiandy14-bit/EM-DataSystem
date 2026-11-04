@@ -168,6 +168,7 @@ Frontend (React 19 + Vite + TypeScript + Ant Design)
 | `pages/Login.tsx` | 登入頁面 |
 | `pages/EquipmentList.tsx` | 主查詢頁（篩選、查詢歷史、拖曳欄位、匯出） |
 | `pages/UserManagement.tsx` | 使用者管理頁（管理員專用） |
+| `pages/ProjectBrandSystem.tsx` | 案件廠牌表規劃系統（廠牌選擇/預覽/歷史） |
 | `components/SpecHistory.tsx` | 規格歷史元件 |
 | `mock/data.ts` | 開發用假資料（USE_MOCK=true 時使用） |
 
@@ -182,6 +183,8 @@ Frontend (React 19 + Vite + TypeScript + Ant Design)
 | `routes/specs.ts` | 規格歷史查詢 |
 | `routes/pricing.ts` | 費用記錄查詢 |
 | `routes/inspection.ts` | 驗收記錄查詢 |
+| `routes/brands.ts` | 廠牌主檔查詢（依類別/關鍵字） |
+| `routes/brand-reports.ts` | 廠牌表記錄查詢與新增 |
 | `wrangler.toml` | Workers 設定（Notion DB IDs、KV binding） |
 
 #### CI/CD `.github/workflows/`
@@ -247,6 +250,8 @@ NOTION_TOKEN=ntn_Y36273413265BhEzxfaYMjGKn31aEWz3WujRl6L46nE9fK
 | Specifications（規格版本歷史） | `3690d834d60e8139b68dc600f5bc1653` |
 | PricingRecords（費用記錄） | `3690d834d60e819eb135dbf929e02c79` |
 | InspectionRecords（檢查記錄） | `3690d834d60e816a9759c2297a7805eb` |
+| BrandMaster（廠牌主檔，911筆） | `d375e2ba6d5e492db60a2417adc4c842` |
+| BrandReportItems（廠牌表記錄） | `bd63c53759e040dda86221ba6332d2bd` |
 
 ### Notion 欄位結構（最終版）
 
