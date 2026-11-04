@@ -11,7 +11,7 @@ import type { BrandMaster, BrandReport } from '../types'
 
 const { Title, Text } = Typography
 
-const CATEGORIES = ['消防', '空調']
+const CATEGORIES = ['消防', '空調', '電氣', '弱電', '給排水', '其他']
 
 type SelectionMap = Record<string, Record<string, boolean>>
 
