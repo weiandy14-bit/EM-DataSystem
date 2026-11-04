@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
-  Tabs, Spin, Alert, Button, Checkbox, Input, Select,
-  Table, Tag, Space, Collapse, Typography, message, Empty, Card,
+  Tabs, Spin, Alert, Button, Checkbox, Input,
+  Table, Tag, Space, Typography, message, Empty, Card,
 } from 'antd'
 import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
+  HolderOutlined, UpOutlined, DownOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type { BrandMaster, BrandReport } from '../types'
@@ -12,6 +13,7 @@ import type { BrandMaster, BrandReport } from '../types'
 const { Title, Text } = Typography
 
 const CATEGORIES = ['消防', '空調', '電力', '弱電', '給排水', '其他']
+const PREVIEW_ORDER = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 
 // category → productId → brandName → selected
 type SelectionMap = Record<string, Record<string, Record<string, boolean>>>
@@ -23,17 +25,152 @@ function gradeColor(grade: string) {
   return 'default'
 }
 
+// ---- Draggable Product List ----
+function DraggableProductList({
+  category,
+  products,
+  selections,
+  productOrder,
+  draggingEnabled,
+  onToggle,
+  onReorder,
+}: {
+  category: string
+  products: BrandMaster[]
+  selections: SelectionMap
+  productOrder: string[]
+  draggingEnabled: boolean
+  onToggle: (category: string, productId: string, brandName: string, checked: boolean) => void
+  onReorder: (category: string, newOrder: string[]) => void
+}) {
+  const [openKeys, setOpenKeys] = useState<Set<string>>(
+    () => new Set(products.slice(0, 3).map(p => p.id))
+  )
+  const dragIndex = useRef<number | null>(null)
+  const dragOverIndex = useRef<number | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  const orderedProducts = useMemo(() => {
+    const orderMap = new Map(productOrder.map((id, i) => [id, i]))
+    return [...products].sort((a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity))
+  }, [products, productOrder])
+
+  const handleDragStart = (index: number) => { dragIndex.current = index }
+  const handleDragEnter = (index: number, id: string) => {
+    dragOverIndex.current = index
+    setDragOverId(id)
+  }
+  const handleDragEnd = () => {
+    if (
+      dragIndex.current !== null &&
+      dragOverIndex.current !== null &&
+      dragIndex.current !== dragOverIndex.current
+    ) {
+      const newOrder = [...productOrder]
+      const [moved] = newOrder.splice(dragIndex.current, 1)
+      newOrder.splice(dragOverIndex.current, 0, moved)
+      onReorder(category, newOrder)
+    }
+    dragIndex.current = null
+    dragOverIndex.current = null
+    setDragOverId(null)
+  }
+
+  const toggleOpen = (id: string) => {
+    setOpenKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  return (
+    <div>
+      {orderedProducts.map((product, index) => {
+        const prodSel = selections[category]?.[product.id] ?? {}
+        const selectedCount = Object.values(prodSel).filter(Boolean).length
+        const isOpen = openKeys.has(product.id)
+        const isDragOver = draggingEnabled && dragOverId === product.id
+
+        return (
+          <div
+            key={product.id}
+            draggable={draggingEnabled}
+            onDragStart={draggingEnabled ? () => handleDragStart(index) : undefined}
+            onDragEnter={draggingEnabled ? () => handleDragEnter(index, product.id) : undefined}
+            onDragEnd={draggingEnabled ? handleDragEnd : undefined}
+            onDragOver={draggingEnabled ? e => e.preventDefault() : undefined}
+            style={{
+              marginBottom: 4,
+              border: `1px solid ${isDragOver ? '#1677ff' : '#f0f0f0'}`,
+              borderRadius: 6,
+              background: '#fff',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '6px 12px',
+                background: '#fafafa',
+                borderRadius: isOpen ? '6px 6px 0 0' : 6,
+                userSelect: 'none',
+              }}
+            >
+              {draggingEnabled && (
+                <HolderOutlined style={{ color: '#bbb', marginRight: 8, cursor: 'grab', fontSize: 14 }} />
+              )}
+              <Space style={{ flex: 1, cursor: 'pointer' }} onClick={() => toggleOpen(product.id)}>
+                <Text strong>{product.productName}</Text>
+                {selectedCount > 0 && <Tag color="blue">{selectedCount} 項已選</Tag>}
+              </Space>
+              <span
+                style={{ cursor: 'pointer', color: '#999', marginLeft: 8 }}
+                onClick={() => toggleOpen(product.id)}
+              >
+                {isOpen ? <UpOutlined /> : <DownOutlined />}
+              </span>
+            </div>
+            {isOpen && (
+              <div style={{ padding: '8px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                {product.brands.map(b => (
+                  <Checkbox
+                    key={b.name}
+                    checked={!!(prodSel[b.name])}
+                    onChange={e => onToggle(category, product.id, b.name, e.target.checked)}
+                  >
+                    <Space size={4}>
+                      <span>{b.name}</span>
+                      <Tag color={gradeColor(b.grade)} style={{ fontSize: 10, margin: 0 }}>{b.grade}</Tag>
+                    </Space>
+                  </Checkbox>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ---- Brand Selector Tab ----
 function BrandSelectorTab({
   category,
   brands,
   selections,
+  productOrder,
   onToggle,
+  onReorder,
 }: {
   category: string
   brands: BrandMaster[]
   selections: SelectionMap
+  productOrder: string[]
   onToggle: (category: string, productId: string, brandName: string, checked: boolean) => void
+  onReorder: (category: string, newOrder: string[]) => void
 }) {
   const [keyword, setKeyword] = useState('')
 
@@ -50,13 +187,14 @@ function BrandSelectorTab({
   const selectedCount = Object.values(catSel).reduce(
     (acc, prodSel) => acc + Object.values(prodSel).filter(Boolean).length, 0
   )
+  const hasKeyword = keyword.trim().length > 0
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Input
           prefix={<SearchOutlined />}
-          placeholder="搜尋品名或廠牌"
+          placeholder="搜尋品名或廠牌（搜尋時停用拖曳排序）"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           allowClear
@@ -68,99 +206,120 @@ function BrandSelectorTab({
       {filtered.length === 0 ? (
         <Empty description="無資料" />
       ) : (
-        <Collapse
-          size="small"
-          defaultActiveKey={filtered.slice(0, 3).map(p => p.id)}
-          items={filtered.map(product => {
-            const prodSel = catSel[product.id] ?? {}
-            const selectedInProduct = Object.values(prodSel).filter(Boolean).length
-            return {
-              key: product.id,
-              label: (
-                <Space>
-                  <Text strong>{product.productName}</Text>
-                  {selectedInProduct > 0 && (
-                    <Tag color="blue">{selectedInProduct} 項已選</Tag>
-                  )}
-                </Space>
-              ),
-              children: (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                  {product.brands.map(b => (
-                    <Checkbox
-                      key={b.name}
-                      checked={!!(prodSel[b.name])}
-                      onChange={e => onToggle(category, product.id, b.name, e.target.checked)}
-                    >
-                      <Space size={4}>
-                        <span>{b.name}</span>
-                        <Tag color={gradeColor(b.grade)} style={{ fontSize: 10, margin: 0 }}>
-                          {b.grade}
-                        </Tag>
-                      </Space>
-                    </Checkbox>
-                  ))}
-                </div>
-              ),
-            }
-          })}
+        <DraggableProductList
+          category={category}
+          products={filtered}
+          selections={selections}
+          productOrder={productOrder}
+          draggingEnabled={!hasKeyword}
+          onToggle={onToggle}
+          onReorder={onReorder}
         />
       )}
     </div>
   )
 }
 
-// ---- Generated Report Preview ----
-function ReportPreview({
-  category,
-  brands,
-  selections,
-}: {
+// ---- Unified Report Preview ----
+type PreviewRow = {
+  key: string
   category: string
-  brands: BrandMaster[]
-  selections: SelectionMap
-}) {
-  const catSel = selections[category] ?? {}
+  product: string
+  selected: Array<{ name: string; grade: string }>
+  categorySpan: number
+}
 
-  const rows = useMemo(() =>
-    brands
-      .map(product => ({
-        product: product.productName,
-        selected: product.brands
+function ReportPreview({
+  brandsMap,
+  selections,
+  productOrder,
+  projectCode,
+}: {
+  brandsMap: Record<string, BrandMaster[]>
+  selections: SelectionMap
+  productOrder: Record<string, string[]>
+  projectCode: string
+}) {
+  const rows = useMemo((): PreviewRow[] => {
+    const flat: Omit<PreviewRow, 'categorySpan'>[] = []
+
+    for (const cat of PREVIEW_ORDER) {
+      const catBrands = brandsMap[cat] ?? []
+      const catOrder = productOrder[cat] ?? catBrands.map(b => b.id)
+      const catSel = selections[cat] ?? {}
+
+      const orderMap = new Map(catOrder.map((id, i) => [id, i]))
+      const ordered = [...catBrands].sort(
+        (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+      )
+
+      for (const product of ordered) {
+        const selected = product.brands
           .filter(b => catSel[product.id]?.[b.name])
-          .map(b => ({ name: b.name, grade: b.grade })),
-      }))
-      .filter(r => r.selected.length > 0),
-    [brands, catSel]
-  )
+          .map(b => ({ name: b.name, grade: b.grade }))
+        if (selected.length > 0) {
+          flat.push({ key: `${cat}-${product.id}`, category: cat, product: product.productName, selected })
+        }
+      }
+    }
+
+    // Calculate rowSpan for category column grouping
+    const result: PreviewRow[] = flat.map(r => ({ ...r, categorySpan: 0 }))
+    let i = 0
+    while (i < result.length) {
+      const cat = result[i].category
+      let j = i
+      while (j < result.length && result[j].category === cat) j++
+      result[i].categorySpan = j - i
+      i = j
+    }
+    return result
+  }, [brandsMap, selections, productOrder])
 
   if (rows.length === 0) return <Empty description="尚未選擇任何廠牌" />
 
   const columns = [
-    { title: '品名', dataIndex: 'product', key: 'product', width: '40%' },
+    {
+      title: '分類',
+      dataIndex: 'category' as const,
+      key: 'category',
+      width: 72,
+      onCell: (_: PreviewRow, index?: number) => ({
+        rowSpan: index != null ? (rows[index]?.categorySpan ?? 1) : 1,
+      }),
+    },
+    {
+      title: '品名',
+      dataIndex: 'product' as const,
+      key: 'product',
+      width: '38%',
+    },
     {
       title: '選定廠牌',
-      dataIndex: 'selected',
+      dataIndex: 'selected' as const,
       key: 'selected',
       render: (items: Array<{ name: string; grade: string }>) => (
         <Space wrap>
-          {items.map(b => (
-            <Tag key={b.name} color={gradeColor(b.grade)}>{b.name}</Tag>
-          ))}
+          {items.map(b => <Tag key={b.name} color={gradeColor(b.grade)}>{b.name}</Tag>)}
         </Space>
       ),
     },
   ]
 
   return (
-    <Table
-      dataSource={rows}
-      columns={columns}
-      rowKey="product"
-      pagination={false}
-      size="small"
-      bordered
-    />
+    <div>
+      {projectCode && (
+        <Title level={5} style={{ marginBottom: 8 }}>{projectCode} 廠牌表</Title>
+      )}
+      <Table<PreviewRow>
+        dataSource={rows}
+        columns={columns}
+        rowKey="key"
+        pagination={false}
+        size="small"
+        bordered
+      />
+    </div>
   )
 }
 
@@ -210,8 +369,8 @@ export default function ProjectBrandSystem() {
   const [error, setError] = useState('')
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0])
   const [selections, setSelections] = useState<SelectionMap>({})
+  const [productOrder, setProductOrder] = useState<Record<string, string[]>>({})
   const [projectCode, setProjectCode] = useState('')
-  const [previewCategory, setPreviewCategory] = useState(CATEGORIES[0])
   const [saving, setSaving] = useState(false)
   const [mainTab, setMainTab] = useState<'select' | 'preview' | 'history'>('select')
 
@@ -221,7 +380,15 @@ export default function ProjectBrandSystem() {
     Promise.all(
       CATEGORIES.map(cat => api.brands.list({ category: cat }).then(list => [cat, list] as const))
     )
-      .then(results => setBrandsMap(Object.fromEntries(results)))
+      .then(results => {
+        const map = Object.fromEntries(results)
+        setBrandsMap(map)
+        const initOrder: Record<string, string[]> = {}
+        for (const [cat, list] of results) {
+          initOrder[cat] = (list as BrandMaster[]).map(b => b.id)
+        }
+        setProductOrder(initOrder)
+      })
       .catch((e: any) => setError(e.message ?? '載入廠牌資料失敗'))
       .finally(() => setLoading(false))
   }, [])
@@ -237,6 +404,10 @@ export default function ProjectBrandSystem() {
         },
       },
     }))
+  }
+
+  const handleReorder = (category: string, newOrder: string[]) => {
+    setProductOrder(prev => ({ ...prev, [category]: newOrder }))
   }
 
   const totalSelected = useMemo(
@@ -262,8 +433,13 @@ export default function ProjectBrandSystem() {
     try {
       await Promise.all(categoriesToSave.map(cat => {
         const catSel = selections[cat] ?? {}
+        const catOrder = productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)
+        const orderMap = new Map(catOrder.map((id, i) => [id, i]))
+        const orderedProducts = [...(brandsMap[cat] ?? [])].sort(
+          (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+        )
         const byProduct: Record<string, string[]> = {}
-        for (const product of brandsMap[cat] ?? []) {
+        for (const product of orderedProducts) {
           const selected = Object.entries(catSel[product.id] ?? {})
             .filter(([, v]) => v).map(([k]) => k)
           if (selected.length > 0) byProduct[product.productName] = selected
@@ -349,7 +525,9 @@ export default function ProjectBrandSystem() {
                   category={cat}
                   brands={brandsMap[cat] ?? []}
                   selections={selections}
+                  productOrder={productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)}
                   onToggle={handleToggle}
+                  onReorder={handleReorder}
                 />
               ),
             }))}
@@ -361,25 +539,12 @@ export default function ProjectBrandSystem() {
       key: 'preview',
       label: <Space><FileTextOutlined />預覽廠牌表</Space>,
       children: (
-        <div>
-          <div style={{ marginBottom: 12 }}>
-            <Select
-              value={previewCategory}
-              onChange={setPreviewCategory}
-              options={CATEGORIES.map(c => ({ value: c, label: c }))}
-              style={{ width: 120 }}
-            />
-          </div>
-          <Title level={5} style={{ marginBottom: 8 }}>
-            {previewCategory} 廠牌表
-            {projectCode && <Text type="secondary" style={{ fontSize: 13, marginLeft: 8 }}>{projectCode}</Text>}
-          </Title>
-          <ReportPreview
-            category={previewCategory}
-            brands={brandsMap[previewCategory] ?? []}
-            selections={selections}
-          />
-        </div>
+        <ReportPreview
+          brandsMap={brandsMap}
+          selections={selections}
+          productOrder={productOrder}
+          projectCode={projectCode}
+        />
       ),
     },
     {
