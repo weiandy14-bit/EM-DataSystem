@@ -312,7 +312,9 @@ function ReportPreview({
       {projectCode && (
         <Title level={5} style={{ marginBottom: 8 }}>{projectCode} 廠牌表</Title>
       )}
+      <style>{`.preview-table .ant-table { font-size: 12px; } .preview-table .ant-tag { font-size: 12px; }`}</style>
       <Table<PreviewRow>
+        className="preview-table"
         dataSource={rows}
         columns={columns}
         rowKey="key"
