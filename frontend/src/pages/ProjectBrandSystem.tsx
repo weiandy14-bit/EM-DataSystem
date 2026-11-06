@@ -222,12 +222,15 @@ function BrandSelectorTab({
 }
 
 // ---- Unified Report Preview ----
+// One row per brand; 分類 and 品名 columns use rowSpan to merge across brands
 type PreviewRow = {
   key: string
   category: string
   product: string
-  selected: Array<{ name: string; grade: string }>
+  brandName: string
+  grade: string
   categorySpan: number
+  productSpan: number
 }
 
 function ReportPreview({
@@ -242,37 +245,41 @@ function ReportPreview({
   projectCode: string
 }) {
   const rows = useMemo((): PreviewRow[] => {
-    const flat: Omit<PreviewRow, 'categorySpan'>[] = []
+    const flat: Omit<PreviewRow, 'categorySpan' | 'productSpan'>[] = []
 
     for (const cat of PREVIEW_ORDER) {
       const catBrands = brandsMap[cat] ?? []
       const catOrder = productOrder[cat] ?? catBrands.map(b => b.id)
       const catSel = selections[cat] ?? {}
-
       const orderMap = new Map(catOrder.map((id, i) => [id, i]))
       const ordered = [...catBrands].sort(
         (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
       )
-
       for (const product of ordered) {
-        const selected = product.brands
-          .filter(b => catSel[product.id]?.[b.name])
-          .map(b => ({ name: b.name, grade: b.grade }))
-        if (selected.length > 0) {
-          flat.push({ key: `${cat}-${product.id}`, category: cat, product: product.productName, selected })
+        const selectedBrands = product.brands.filter(b => catSel[product.id]?.[b.name])
+        for (const b of selectedBrands) {
+          flat.push({ key: `${cat}-${product.id}-${b.name}`, category: cat, product: product.productName, brandName: b.name, grade: b.grade })
         }
       }
     }
 
-    // Calculate rowSpan for category column grouping
-    const result: PreviewRow[] = flat.map(r => ({ ...r, categorySpan: 0 }))
+    // Calculate rowSpan for 分類 and 品名 columns
+    const result: PreviewRow[] = flat.map(r => ({ ...r, categorySpan: 0, productSpan: 0 }))
     let i = 0
     while (i < result.length) {
       const cat = result[i].category
+      let catEnd = i
+      while (catEnd < result.length && result[catEnd].category === cat) catEnd++
+      result[i].categorySpan = catEnd - i
       let j = i
-      while (j < result.length && result[j].category === cat) j++
-      result[i].categorySpan = j - i
-      i = j
+      while (j < catEnd) {
+        const prod = result[j].product
+        let prodEnd = j
+        while (prodEnd < catEnd && result[prodEnd].product === prod) prodEnd++
+        result[j].productSpan = prodEnd - j
+        j = prodEnd
+      }
+      i = catEnd
     }
     return result
   }, [brandsMap, selections, productOrder])
@@ -293,16 +300,17 @@ function ReportPreview({
       title: '品名',
       dataIndex: 'product' as const,
       key: 'product',
-      width: '38%',
+      width: '45%',
+      onCell: (_: PreviewRow, index?: number) => ({
+        rowSpan: index != null ? (rows[index]?.productSpan ?? 1) : 1,
+      }),
     },
     {
-      title: '選定廠牌',
-      dataIndex: 'selected' as const,
-      key: 'selected',
-      render: (items: Array<{ name: string; grade: string }>) => (
-        <Space wrap>
-          {items.map(b => <Tag key={b.name} color={gradeColor(b.grade)}>{b.name}</Tag>)}
-        </Space>
+      title: '廠牌',
+      dataIndex: 'brandName' as const,
+      key: 'brandName',
+      render: (name: string, record: PreviewRow) => (
+        <Tag color={gradeColor(record.grade)}>{name}</Tag>
       ),
     },
   ]
@@ -312,7 +320,7 @@ function ReportPreview({
       {projectCode && (
         <Title level={5} style={{ marginBottom: 8 }}>{projectCode} 廠牌表</Title>
       )}
-      <style>{`.preview-table .ant-table { font-size: 16px; } .preview-table .ant-table td, .preview-table .ant-table th { font-size: 16px; } .preview-table .ant-tag { font-size: 14px; }`}</style>
+      <style>{`.preview-table .ant-table td, .preview-table .ant-table th { font-size: 16px; } .preview-table .ant-tag { font-size: 14px; }`}</style>
       <Table<PreviewRow>
         className="preview-table"
         dataSource={rows}
