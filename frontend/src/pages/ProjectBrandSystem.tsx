@@ -124,7 +124,7 @@ function DraggableProductList({
                 <HolderOutlined style={{ color: '#bbb', marginRight: 8, cursor: 'grab', fontSize: 14 }} />
               )}
               <Space style={{ flex: 1, cursor: 'pointer' }} onClick={() => toggleOpen(product.id)}>
-                <Text strong>{product.productName}</Text>
+                <Text strong style={{ fontSize: 16 }}>{product.productName}</Text>
                 {selectedCount > 0 && <Tag color="blue">{selectedCount} 項已選</Tag>}
               </Space>
               <span
@@ -143,8 +143,8 @@ function DraggableProductList({
                     onChange={e => onToggle(category, product.id, b.name, e.target.checked)}
                   >
                     <Space size={4}>
-                      <span>{b.name}</span>
-                      <Tag color={gradeColor(b.grade)} style={{ fontSize: 10, margin: 0 }}>{b.grade}</Tag>
+                      <span style={{ fontSize: 16 }}>{b.name}</span>
+                      <Tag color={gradeColor(b.grade)} style={{ fontSize: 12, margin: 0 }}>{b.grade}</Tag>
                     </Space>
                   </Checkbox>
                 ))}
