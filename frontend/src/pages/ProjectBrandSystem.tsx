@@ -319,54 +319,36 @@ function ReportPreview({
     if (rows.length === 0) return
     const {
       Document, Packer, Table, TableRow, TableCell,
-      Paragraph, TextRun, WidthType, VerticalAlign,
-      AlignmentType, HeadingLevel, VerticalMergeType,
+      Paragraph, TextRun, WidthType, AlignmentType, HeadingLevel,
     } = await import('docx')
 
     const PT = (pt: number) => pt * 2  // docx size unit = half-points
 
-    // header row
-    const mkHeader = (text: string) => new TableCell({
-      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold: true, size: PT(12) })] })],
-      shading: { fill: 'EEEEEE' },
-    })
+    const mkCell = (text: string, opts?: { bold?: boolean; size?: number; align?: 'center' }) =>
+      new TableCell({
+        children: [new Paragraph({
+          alignment: opts?.align === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
+          children: [new TextRun({ text, bold: opts?.bold, size: opts?.size ?? PT(12) })],
+        })],
+      })
+
     const tableRows = [
-      new TableRow({ tableHeader: true, children: [mkHeader('分類'), mkHeader('品名'), mkHeader('廠牌')] }),
+      new TableRow({
+        tableHeader: true,
+        children: [
+          mkCell('分類', { bold: true, align: 'center' }),
+          mkCell('品名', { bold: true }),
+          mkCell('廠牌', { bold: true }),
+        ],
+      }),
+      ...rows.map(row => new TableRow({
+        children: [
+          mkCell(row.category, { align: 'center' }),
+          mkCell(row.product),
+          mkCell(row.brandName, { size: PT(18) }),
+        ],
+      })),
     ]
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      const cells = []
-
-      // category column
-      if (row.categorySpan > 0) {
-        cells.push(new TableCell({
-          rowSpan: row.categorySpan,
-          verticalAlign: VerticalAlign.CENTER,
-          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: row.category, size: PT(12) })] })],
-        }))
-      } else {
-        cells.push(new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [] }))
-      }
-
-      // product column
-      if (row.productSpan > 0) {
-        cells.push(new TableCell({
-          rowSpan: row.productSpan,
-          verticalAlign: VerticalAlign.CENTER,
-          children: [new Paragraph({ children: [new TextRun({ text: row.product, size: PT(12) })] })],
-        }))
-      } else {
-        cells.push(new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [] }))
-      }
-
-      // brand column
-      cells.push(new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: row.brandName, size: PT(18) })] })],
-      }))
-
-      tableRows.push(new TableRow({ children: cells }))
-    }
 
     const title = projectCode ? `${projectCode}廠牌建議表` : '廠牌建議表'
     const doc = new Document({
