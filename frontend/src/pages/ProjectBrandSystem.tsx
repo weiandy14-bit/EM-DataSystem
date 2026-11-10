@@ -5,7 +5,7 @@ import {
 } from 'antd'
 import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
-  HolderOutlined, UpOutlined, DownOutlined,
+  HolderOutlined, UpOutlined, DownOutlined, DownloadOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type { BrandMaster, BrandReport } from '../types'
@@ -309,18 +309,52 @@ function ReportPreview({
       title: '廠牌',
       dataIndex: 'brandName' as const,
       key: 'brandName',
-      render: (name: string, record: PreviewRow) => (
-        <Tag color={gradeColor(record.grade)}>{name}</Tag>
+      render: (name: string) => (
+        <span style={{ fontSize: 32, fontWeight: 500 }}>{name}</span>
       ),
     },
   ]
+
+  const handleExportWord = () => {
+    if (rows.length === 0) return
+    let bodyHtml = ''
+    for (const row of rows) {
+      bodyHtml += '<tr>'
+      if (row.categorySpan > 0) {
+        bodyHtml += `<td rowspan="${row.categorySpan}" style="border:1px solid black;padding:8px;text-align:center;vertical-align:middle;">${row.category}</td>`
+      }
+      if (row.productSpan > 0) {
+        bodyHtml += `<td rowspan="${row.productSpan}" style="border:1px solid black;padding:8px;vertical-align:middle;">${row.product}</td>`
+      }
+      bodyHtml += `<td style="border:1px solid black;padding:8px;font-size:16pt;">${row.brandName}</td>`
+      bodyHtml += '</tr>'
+    }
+    const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>table{border-collapse:collapse;width:100%}td,th{border:1px solid black;padding:8px}th{background:#f0f0f0;font-weight:bold}</style></head><body><h2>${projectCode || '廠牌表'}</h2><table><thead><tr><th style="width:80px">分類</th><th>品名</th><th>廠牌</th></tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`
+    const blob = new Blob(['﻿' + doc], { type: 'application/msword' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${projectCode || '廠牌表'}.doc`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div>
       {projectCode && (
         <Title level={5} style={{ marginBottom: 8 }}>{projectCode} 廠牌表</Title>
       )}
-      <style>{`.preview-table .ant-table td, .preview-table .ant-table th { font-size: 16px; } .preview-table .ant-tag { font-size: 14px; }`}</style>
+      <div style={{ marginBottom: 8 }}>
+        <Button icon={<DownloadOutlined />} onClick={handleExportWord} disabled={rows.length === 0}>
+          匯出 Word
+        </Button>
+      </div>
+      <style>{`
+        .preview-table .ant-table td, .preview-table .ant-table th { font-size: 16px; }
+        .preview-table .ant-table-cell { border-color: #000 !important; }
+        .preview-table .ant-table-container { border-inline-start-color: #000 !important; }
+        .preview-table .ant-table { border-color: #000 !important; }
+      `}</style>
       <Table<PreviewRow>
         className="preview-table"
         dataSource={rows}
