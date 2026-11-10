@@ -310,31 +310,82 @@ function ReportPreview({
       dataIndex: 'brandName' as const,
       key: 'brandName',
       render: (name: string) => (
-        <span style={{ fontSize: 32, fontWeight: 500 }}>{name}</span>
+        <span style={{ fontSize: 18, fontWeight: 500 }}>{name}</span>
       ),
     },
   ]
 
-  const handleExportWord = () => {
+  const handleExportWord = async () => {
     if (rows.length === 0) return
-    let bodyHtml = ''
-    for (const row of rows) {
-      bodyHtml += '<tr>'
+    const {
+      Document, Packer, Table, TableRow, TableCell,
+      Paragraph, TextRun, WidthType, VerticalAlign,
+      AlignmentType, HeadingLevel, VerticalMergeType,
+    } = await import('docx')
+
+    const PT = (pt: number) => pt * 2  // docx size unit = half-points
+
+    // header row
+    const mkHeader = (text: string) => new TableCell({
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold: true, size: PT(12) })] })],
+      shading: { fill: 'EEEEEE' },
+    })
+    const tableRows = [
+      new TableRow({ tableHeader: true, children: [mkHeader('分類'), mkHeader('品名'), mkHeader('廠牌')] }),
+    ]
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const cells = []
+
+      // category column
       if (row.categorySpan > 0) {
-        bodyHtml += `<td rowspan="${row.categorySpan}" style="border:1px solid black;padding:8px;text-align:center;vertical-align:middle;">${row.category}</td>`
+        cells.push(new TableCell({
+          rowSpan: row.categorySpan,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: row.category, size: PT(12) })] })],
+        }))
+      } else {
+        cells.push(new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [] }))
       }
+
+      // product column
       if (row.productSpan > 0) {
-        bodyHtml += `<td rowspan="${row.productSpan}" style="border:1px solid black;padding:8px;vertical-align:middle;">${row.product}</td>`
+        cells.push(new TableCell({
+          rowSpan: row.productSpan,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [new Paragraph({ children: [new TextRun({ text: row.product, size: PT(12) })] })],
+        }))
+      } else {
+        cells.push(new TableCell({ verticalMerge: VerticalMergeType.CONTINUE, children: [] }))
       }
-      bodyHtml += `<td style="border:1px solid black;padding:8px;font-size:16pt;">${row.brandName}</td>`
-      bodyHtml += '</tr>'
+
+      // brand column
+      cells.push(new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: row.brandName, size: PT(18) })] })],
+      }))
+
+      tableRows.push(new TableRow({ children: cells }))
     }
-    const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>table{border-collapse:collapse;width:100%}td,th{border:1px solid black;padding:8px}th{background:#f0f0f0;font-weight:bold}</style></head><body><h2>${projectCode || '廠牌表'}</h2><table><thead><tr><th style="width:80px">分類</th><th>品名</th><th>廠牌</th></tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`
-    const blob = new Blob(['﻿' + doc], { type: 'application/msword' })
+
+    const title = projectCode ? `${projectCode}廠牌建議表` : '廠牌建議表'
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            children: [new TextRun({ text: title, bold: true, size: PT(18) })],
+          }),
+          new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }),
+        ],
+      }],
+    })
+
+    const blob = await Packer.toBlob(doc)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${projectCode || '廠牌表'}.doc`
+    a.download = `${title}.docx`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -342,7 +393,7 @@ function ReportPreview({
   return (
     <div>
       {projectCode && (
-        <Title level={5} style={{ marginBottom: 8 }}>{projectCode} 廠牌表</Title>
+        <Title level={5} style={{ marginBottom: 8 }}>{projectCode}廠牌建議表</Title>
       )}
       <div style={{ marginBottom: 8 }}>
         <Button icon={<DownloadOutlined />} onClick={handleExportWord} disabled={rows.length === 0}>
@@ -350,7 +401,7 @@ function ReportPreview({
         </Button>
       </div>
       <style>{`
-        .preview-table .ant-table td, .preview-table .ant-table th { font-size: 16px; }
+        .preview-table .ant-table td, .preview-table .ant-table th { font-size: 18px; }
         .preview-table .ant-table-cell { border-color: #000 !important; }
         .preview-table .ant-table-container { border-inline-start-color: #000 !important; }
         .preview-table .ant-table { border-color: #000 !important; }
