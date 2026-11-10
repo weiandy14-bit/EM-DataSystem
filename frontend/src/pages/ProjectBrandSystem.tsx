@@ -327,9 +327,40 @@ function ReportPreview({
 }
 
 // ---- History Panel ----
-function HistoryPanel({ projectCode }: { projectCode: string }) {
+type VersionGroup = {
+  versionKey: string
+  displayTime: string
+  reports: BrandReport[]
+}
+
+function groupByVersion(reports: BrandReport[]): VersionGroup[] {
+  const map = new Map<string, BrandReport[]>()
+  for (const r of reports) {
+    const key = r.savedAt ?? r.createdDate
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(r)
+  }
+  return Array.from(map.entries()).map(([key, reps]) => ({
+    versionKey: key,
+    displayTime: key.includes('T')
+      ? new Date(key).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : key,
+    reports: reps,
+  }))
+}
+
+function HistoryPanel({
+  projectCode,
+  brandsMap,
+  onLoad,
+}: {
+  projectCode: string
+  brandsMap: Record<string, BrandMaster[]>
+  onLoad: (reports: BrandReport[]) => void
+}) {
   const [reports, setReports] = useState<BrandReport[]>([])
   const [loading, setLoading] = useState(false)
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!projectCode.trim()) return
@@ -344,20 +375,84 @@ function HistoryPanel({ projectCode }: { projectCode: string }) {
   if (loading) return <Spin />
   if (reports.length === 0) return <Empty description="無歷史記錄" />
 
+  const versions = groupByVersion(reports)
+
+  const toggleExpand = (key: string) => {
+    setExpandedKeys(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {reports.map(r => {
-        const totalSelected = Object.values(r.selections).reduce((acc, arr) => acc + arr.length, 0)
+      {versions.map(v => {
+        const isExpanded = expandedKeys.has(v.versionKey)
+        // Merge all categories from this version's reports
+        const merged: Record<string, Record<string, string[]>> = {}
+        for (const r of v.reports) {
+          for (const [cat, catSel] of Object.entries(r.selections)) {
+            merged[cat] = { ...(merged[cat] ?? {}), ...catSel }
+          }
+        }
+        const totalBrands = Object.values(merged).reduce(
+          (a, catSel) => a + Object.values(catSel).reduce((b, brands) => b + brands.length, 0), 0
+        )
+        const catSummary = Object.entries(merged)
+          .filter(([, catSel]) => Object.keys(catSel).length > 0)
+          .map(([cat, catSel]) => {
+            const count = Object.values(catSel).reduce((a, b) => a + b.length, 0)
+            return `${cat} ${count}項`
+          }).join(' / ')
+
         return (
-          <Card key={r.id} size="small" title={
-            <Space>
-              <Text strong>{r.reportName}</Text>
-              <Tag>{r.category}</Tag>
-              <Text type="secondary" style={{ fontSize: 12 }}>{r.createdDate}</Text>
-            </Space>
-          }>
-            <Text type="secondary">共 {totalSelected} 項廠牌</Text>
-            {r.notes && <><br /><Text type="secondary" style={{ fontSize: 12 }}>{r.notes}</Text></>}
+          <Card
+            key={v.versionKey}
+            size="small"
+            style={{ borderRadius: 8 }}
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <Space>
+                  <Text strong style={{ fontSize: 15 }}>{v.displayTime}</Text>
+                  <Tag color="blue">共 {totalBrands} 項廠牌</Tag>
+                </Space>
+                <Space>
+                  <Button size="small" onClick={() => toggleExpand(v.versionKey)}>
+                    {isExpanded ? '收起' : '展開明細'}
+                  </Button>
+                  <Button size="small" type="primary" onClick={() => onLoad(v.reports)}>
+                    載入編輯
+                  </Button>
+                </Space>
+              </div>
+            }
+          >
+            <Text type="secondary" style={{ fontSize: 13 }}>{catSummary}</Text>
+            {isExpanded && (
+              <div style={{ marginTop: 8 }}>
+                {Object.entries(merged).map(([cat, catSel]) =>
+                  Object.keys(catSel).length === 0 ? null : (
+                    <div key={cat} style={{ marginBottom: 6 }}>
+                      <Text strong style={{ fontSize: 13 }}>{cat}：</Text>
+                      {Object.entries(catSel).map(([productName, brands]) => (
+                        <div key={productName} style={{ paddingLeft: 12, marginTop: 2 }}>
+                          <Text style={{ fontSize: 13 }}>{productName}　</Text>
+                          <Space wrap size={4}>
+                            {brands.map(b => {
+                              const grade = brandsMap[cat]
+                                ?.flatMap(bm => bm.brands)
+                                .find(bi => bi.name === b)?.grade ?? ''
+                              return <Tag key={b} color={gradeColor(grade)} style={{ fontSize: 12 }}>{b}</Tag>
+                            })}
+                          </Space>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </Card>
         )
       })}
@@ -426,40 +521,59 @@ export default function ProjectBrandSystem() {
     if (!projectCode.trim()) { message.warning('請輸入案件工號'); return }
     if (totalSelected === 0) { message.warning('請至少選擇一個廠牌'); return }
 
-    const categoriesToSave = CATEGORIES.filter(cat => {
+    const combinedSelections: Record<string, Record<string, string[]>> = {}
+    for (const cat of CATEGORIES) {
       const catSel = selections[cat] ?? {}
-      return Object.values(catSel).some(p => Object.values(p).some(Boolean))
-    })
-    if (categoriesToSave.length === 0) { message.warning('無已選廠牌可儲存'); return }
+      const catOrder = productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)
+      const orderMap = new Map(catOrder.map((id, i) => [id, i]))
+      const orderedProducts = [...(brandsMap[cat] ?? [])].sort(
+        (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+      )
+      const byProduct: Record<string, string[]> = {}
+      for (const product of orderedProducts) {
+        const selected = Object.entries(catSel[product.id] ?? {})
+          .filter(([, v]) => v).map(([k]) => k)
+        if (selected.length > 0) byProduct[product.productName] = selected
+      }
+      if (Object.keys(byProduct).length > 0) combinedSelections[cat] = byProduct
+    }
+
+    if (Object.keys(combinedSelections).length === 0) { message.warning('無已選廠牌可儲存'); return }
 
     setSaving(true)
     try {
-      await Promise.all(categoriesToSave.map(cat => {
-        const catSel = selections[cat] ?? {}
-        const catOrder = productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)
-        const orderMap = new Map(catOrder.map((id, i) => [id, i]))
-        const orderedProducts = [...(brandsMap[cat] ?? [])].sort(
-          (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
-        )
-        const byProduct: Record<string, string[]> = {}
-        for (const product of orderedProducts) {
-          const selected = Object.entries(catSel[product.id] ?? {})
-            .filter(([, v]) => v).map(([k]) => k)
-          if (selected.length > 0) byProduct[product.productName] = selected
-        }
-        return api.brandReports.create({
-          reportName: `${projectCode}-${cat}`,
-          projectCode: projectCode.trim(),
-          category: cat,
-          selections: byProduct,
-        })
-      }))
+      await api.brandReports.create({
+        reportName: projectCode.trim(),
+        projectCode: projectCode.trim(),
+        selections: combinedSelections,
+      })
       message.success(`已儲存 ${projectCode} 廠牌表`)
     } catch (e: any) {
       message.error(e.message ?? '儲存失敗')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleLoadVersion = (reports: BrandReport[]) => {
+    const newSelections: SelectionMap = {}
+    for (const report of reports) {
+      for (const [cat, catSel] of Object.entries(report.selections)) {
+        const catBrands = brandsMap[cat] ?? []
+        newSelections[cat] = newSelections[cat] ?? {}
+        for (const [productName, brandNames] of Object.entries(catSel)) {
+          const product = catBrands.find(b => b.productName === productName)
+          if (!product) continue
+          newSelections[cat][product.id] = {}
+          for (const brandName of brandNames) {
+            newSelections[cat][product.id][brandName] = true
+          }
+        }
+      }
+    }
+    setSelections(newSelections)
+    setMainTab('select')
+    message.success('已載入廠牌選擇，可繼續編輯')
   }
 
   if (loading) {
@@ -486,24 +600,13 @@ export default function ProjectBrandSystem() {
       children: (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <Space>
-              <Input
-                addonBefore="案件工號"
-                placeholder="e.g. PJ2024-001"
-                value={projectCode}
-                onChange={e => setProjectCode(e.target.value)}
-                style={{ width: 280 }}
-              />
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleSave}
-                loading={saving}
-                disabled={totalSelected === 0 || !projectCode.trim()}
-              >
-                儲存廠牌表
-              </Button>
-            </Space>
+            <Input
+              addonBefore="案件工號"
+              placeholder="e.g. PJ2024-001"
+              value={projectCode}
+              onChange={e => setProjectCode(e.target.value)}
+              style={{ width: 280 }}
+            />
           </div>
           <Tabs
             activeKey={activeCategory}
@@ -542,12 +645,34 @@ export default function ProjectBrandSystem() {
       key: 'preview',
       label: <Space><FileTextOutlined />預覽廠牌表</Space>,
       children: (
-        <ReportPreview
-          brandsMap={brandsMap}
-          selections={selections}
-          productOrder={productOrder}
-          projectCode={projectCode}
-        />
+        <div>
+          <div style={{ marginBottom: 12 }}>
+            <Space wrap>
+              <Input
+                addonBefore="案件工號"
+                placeholder="e.g. PJ2024-001"
+                value={projectCode}
+                onChange={e => setProjectCode(e.target.value)}
+                style={{ width: 280 }}
+              />
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={handleSave}
+                loading={saving}
+                disabled={totalSelected === 0 || !projectCode.trim()}
+              >
+                儲存廠牌表
+              </Button>
+            </Space>
+          </div>
+          <ReportPreview
+            brandsMap={brandsMap}
+            selections={selections}
+            productOrder={productOrder}
+            projectCode={projectCode}
+          />
+        </div>
       ),
     },
     {
@@ -564,7 +689,7 @@ export default function ProjectBrandSystem() {
               style={{ width: 280 }}
             />
           </div>
-          <HistoryPanel projectCode={projectCode} />
+          <HistoryPanel projectCode={projectCode} brandsMap={brandsMap} onLoad={handleLoadVersion} />
         </div>
       ),
     },

@@ -187,32 +187,69 @@ export function pageToBrandMaster(page: any) {
 export function pageToBrandReport(page: any) {
   const p = page.properties
   const selectionsStr = getText(p['選定廠牌清單'])
-  let selections: Record<string, string[]> = {}
-  try { selections = JSON.parse(selectionsStr) } catch { /* ignore */ }
+  const category = getSelect(p['類別'])
+  const notesRaw = getText(p['備註'])
+
+  // Extract savedAt timestamp embedded as first line: "savedAt:2024-01-15T10:30:00.000Z"
+  let savedAt: string | undefined
+  let notes = notesRaw
+  if (notesRaw.startsWith('savedAt:')) {
+    const nl = notesRaw.indexOf('\n')
+    savedAt = nl === -1 ? notesRaw.slice(8) : notesRaw.slice(8, nl)
+    notes = nl === -1 ? '' : notesRaw.slice(nl + 1)
+  }
+
+  let parsed: any = {}
+  try { parsed = JSON.parse(selectionsStr) } catch { /* ignore */ }
+
+  // Normalize to nested format: Record<string, Record<string, string[]>>
+  // Old format: { productName: string[] }  (has non-empty category field)
+  // New format: { category: { productName: string[] } }
+  let selections: Record<string, Record<string, string[]>> = {}
+  const firstVal = Object.values(parsed)[0]
+  if (category && Array.isArray(firstVal)) {
+    // Old single-category record → wrap with its category
+    selections = { [category]: parsed as Record<string, string[]> }
+  } else if (typeof firstVal === 'object' && firstVal !== null && !Array.isArray(firstVal)) {
+    // New nested format
+    selections = parsed
+  }
+
   return {
     id: page.id,
     reportName: getText(p['報表名稱']),
     projectCode: getText(p['案件工號']),
-    category: getSelect(p['類別']),
+    category,
     selections,
     createdDate: getDate(p['建立日期']),
-    notes: getText(p['備註']),
+    savedAt,
+    notes,
   }
+}
+
+function toRichTextChunks(str: string) {
+  const chunks = []
+  for (let i = 0; i < str.length; i += 2000) {
+    chunks.push({ text: { content: str.slice(i, i + 2000) } })
+  }
+  return chunks.length ? chunks : [{ text: { content: '' } }]
 }
 
 export async function createBrandReport(
   env: Env,
-  data: { reportName: string; projectCode: string; category: string; selections: Record<string, string[]>; notes?: string }
+  data: { reportName: string; projectCode: string; selections: Record<string, Record<string, string[]>>; notes?: string }
 ) {
+  const savedAt = new Date().toISOString()
+  const notesContent = `savedAt:${savedAt}${data.notes ? '\n' + data.notes : ''}`
   const body = {
     parent: { database_id: env.NOTION_DB_BRAND_REPORTS },
     properties: {
       '報表名稱': { title: [{ text: { content: data.reportName } }] },
       '案件工號': { rich_text: [{ text: { content: data.projectCode } }] },
-      '類別': { select: { name: data.category } },
-      '選定廠牌清單': { rich_text: [{ text: { content: JSON.stringify(data.selections) } }] },
+      '類別': { select: { name: '全部' } },
+      '選定廠牌清單': { rich_text: toRichTextChunks(JSON.stringify(data.selections)) },
       '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
-      '備註': { rich_text: [{ text: { content: data.notes ?? '' } }] },
+      '備註': { rich_text: [{ text: { content: notesContent } }] },
     },
   }
   return notionRequest(env, 'POST', '/pages', body)

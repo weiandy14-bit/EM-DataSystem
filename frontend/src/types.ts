@@ -89,8 +89,9 @@ export interface BrandReport {
   reportName: string
   projectCode: string
   category: string
-  selections: Record<string, string[]>
+  selections: Record<string, Record<string, string[]>>
   createdDate: string
+  savedAt?: string
   notes: string
 }
 

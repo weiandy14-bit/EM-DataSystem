@@ -197,8 +197,7 @@ export const api = {
     create: async (data: {
       reportName: string
       projectCode: string
-      category: string
-      selections: Record<string, string[]>
+      selections: Record<string, Record<string, string[]>>
       notes?: string
     }): Promise<BrandReport> => {
       const url = new URL(`${API_BASE}/brand-reports`, location.origin)
