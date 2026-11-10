@@ -205,7 +205,11 @@ export const api = {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch(url.toString(), { method: 'POST', headers, body: JSON.stringify(data) })
-      if (!res.ok) throw new Error(`API error ${res.status}`)
+      if (!res.ok) {
+        let detail = ''
+        try { const b = await res.json(); detail = b.error ?? '' } catch { /* ignore */ }
+        throw new Error(`API error ${res.status}${detail ? `: ${detail}` : ''}`)
+      }
       return res.json()
     },
   },
