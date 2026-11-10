@@ -292,6 +292,7 @@ function ReportPreview({
       dataIndex: 'category' as const,
       key: 'category',
       width: 72,
+      align: 'center' as const,
       onCell: (_: PreviewRow, index?: number) => ({
         rowSpan: index != null ? (rows[index]?.categorySpan ?? 1) : 1,
       }),
@@ -301,6 +302,7 @@ function ReportPreview({
       dataIndex: 'product' as const,
       key: 'product',
       width: '45%',
+      className: 'col-product',
       onCell: (_: PreviewRow, index?: number) => ({
         rowSpan: index != null ? (rows[index]?.productSpan ?? 1) : 1,
       }),
@@ -309,8 +311,9 @@ function ReportPreview({
       title: '廠牌',
       dataIndex: 'brandName' as const,
       key: 'brandName',
+      className: 'col-brand',
       render: (name: string) => (
-        <span style={{ fontSize: 18, fontWeight: 500 }}>{name}</span>
+        <span style={{ fontWeight: 500 }}>{name}</span>
       ),
     },
   ]
@@ -384,7 +387,9 @@ function ReportPreview({
       </div>
       <style>{`
         .preview-table .ant-table td, .preview-table .ant-table th { font-size: 18px; }
-        .preview-table .ant-table-cell { border-color: #000 !important; }
+        .preview-table .ant-table-thead .ant-table-cell { font-weight: bold; }
+        .preview-table .col-product, .preview-table .col-brand { font-size: 16px; }
+        .preview-table .ant-table-cell { border-color: #000 !important; vertical-align: middle; }
         .preview-table .ant-table-container { border-inline-start-color: #000 !important; }
         .preview-table .ant-table { border-color: #000 !important; }
       `}</style>
