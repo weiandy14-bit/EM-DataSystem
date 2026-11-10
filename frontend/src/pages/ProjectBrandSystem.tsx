@@ -322,18 +322,31 @@ function ReportPreview({
     if (rows.length === 0) return
     const {
       Document, Packer, Table, TableRow, TableCell,
-      Paragraph, TextRun, WidthType, AlignmentType, HeadingLevel,
+      Paragraph, TextRun, WidthType, AlignmentType, HeadingLevel, VerticalMergeType,
     } = await import('docx')
 
     const PT = (pt: number) => pt * 2  // docx size unit = half-points
 
-    const mkCell = (text: string, opts?: { bold?: boolean; size?: number; align?: 'center' }) =>
-      new TableCell({
-        children: [new Paragraph({
-          alignment: opts?.align === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
-          children: [new TextRun({ text, bold: opts?.bold, size: opts?.size ?? PT(12) })],
-        })],
+    const mkCell = (
+      text: string,
+      opts?: { bold?: boolean; size?: number; align?: 'center'; vMerge?: 'restart' | 'continue' }
+    ) => {
+      const vMerge = opts?.vMerge === 'restart'
+        ? VerticalMergeType.RESTART
+        : opts?.vMerge === 'continue'
+        ? VerticalMergeType.CONTINUE
+        : undefined
+      const para = opts?.vMerge === 'continue'
+        ? new Paragraph({ children: [] })
+        : new Paragraph({
+            alignment: opts?.align === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
+            children: [new TextRun({ text, bold: opts?.bold, size: opts?.size ?? PT(12) })],
+          })
+      return new TableCell({
+        ...(vMerge !== undefined ? { verticalMerge: vMerge } : {}),
+        children: [para],
       })
+    }
 
     const tableRows = [
       new TableRow({
@@ -344,13 +357,17 @@ function ReportPreview({
           mkCell('廠牌', { bold: true }),
         ],
       }),
-      ...rows.map(row => new TableRow({
-        children: [
-          mkCell(row.category, { align: 'center' }),
-          mkCell(row.product),
-          mkCell(row.brandName, { size: PT(18) }),
-        ],
-      })),
+      ...rows.map(row => {
+        const catVM = row.categorySpan > 1 ? 'restart' : row.categorySpan === 0 ? 'continue' : undefined
+        const prodVM = row.productSpan > 1 ? 'restart' : row.productSpan === 0 ? 'continue' : undefined
+        return new TableRow({
+          children: [
+            mkCell(row.category, { align: 'center', vMerge: catVM }),
+            mkCell(row.product, { vMerge: prodVM }),
+            mkCell(row.brandName, { size: PT(16) }),
+          ],
+        })
+      }),
     ]
 
     const title = projectCode ? `${projectCode}廠牌建議表` : '廠牌建議表'
