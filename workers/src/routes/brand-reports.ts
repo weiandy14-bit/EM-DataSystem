@@ -30,7 +30,7 @@ export async function handleBrandReports(req: Request, env: Env, subpath: string
       notes?: string
     }
 
-    if (!body.reportName || !body.projectCode || !body.category || !body.selections) {
+    if (!body.reportName || !body.projectCode || !body.selections) {
       return json({ error: 'Missing required fields' }, 400)
     }
 
