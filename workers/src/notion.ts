@@ -246,7 +246,6 @@ export async function createBrandReport(
     properties: {
       '報表名稱': { title: [{ text: { content: data.reportName } }] },
       '案件工號': { rich_text: [{ text: { content: data.projectCode } }] },
-      '類別': { select: { name: '全部' } },
       '選定廠牌清單': { rich_text: toRichTextChunks(JSON.stringify(data.selections)) },
       '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
       '備註': { rich_text: [{ text: { content: notesContent } }] },
