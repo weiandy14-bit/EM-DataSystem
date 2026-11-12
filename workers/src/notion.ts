@@ -7,6 +7,7 @@ export interface Env {
   NOTION_DB_INSPECTIONS: string
   NOTION_DB_BRAND_MASTER: string
   NOTION_DB_BRAND_REPORTS: string
+  NOTION_DB_PROJECTS: string
   AUTH_KV: KVNamespace
 }
 
@@ -226,6 +227,80 @@ export function pageToBrandReport(page: any) {
     notes,
     changeSummary: getText(p['修改摘要']) || undefined,
   }
+}
+
+export function pageToProject(page: any) {
+  const p = page.properties
+  return {
+    id: page.id,
+    projectCode: getText(p['工程編號']),
+    projectName: getText(p['工程名稱']),
+    year: getNumber(p['年度']),
+    createdDate: getDate(p['建立日期']),
+  }
+}
+
+export async function createProject(env: Env, data: { year: number; projectCode: string; projectName: string }) {
+  return notionRequest(env, 'POST', '/pages', {
+    parent: { database_id: env.NOTION_DB_PROJECTS },
+    properties: {
+      '工程編號': { title: [{ text: { content: data.projectCode } }] },
+      '工程名稱': { rich_text: [{ text: { content: data.projectName } }] },
+      '年度': { number: data.year },
+      '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
+    },
+  })
+}
+
+async function archivePage(env: Env, pageId: string) {
+  return notionRequest(env, 'PATCH', `/pages/${pageId}`, { archived: true })
+}
+
+export async function deleteProjectById(env: Env, projectId: string, cascadeReports: boolean) {
+  if (cascadeReports) {
+    const project = await getPage(env, projectId)
+    const code = getText(project.properties['工程編號'])
+    if (code) {
+      const reports = await queryDatabase(env, env.NOTION_DB_BRAND_REPORTS, {
+        property: '案件工號',
+        rich_text: { equals: code },
+      })
+      await Promise.all(reports.map((r: any) => archivePage(env, r.id)))
+    }
+  }
+  return archivePage(env, projectId)
+}
+
+export async function getProjectsWithStats(env: Env) {
+  const [projectPages, reportPages] = await Promise.all([
+    queryDatabase(env, env.NOTION_DB_PROJECTS, undefined, [
+      { property: '年度', direction: 'descending' },
+    ]),
+    queryDatabase(env, env.NOTION_DB_BRAND_REPORTS, undefined, [
+      { property: '建立日期', direction: 'descending' },
+    ]),
+  ])
+
+  const reportsByCode: Record<string, { count: number; lastSavedAt?: string }> = {}
+  for (const page of reportPages) {
+    const code = getText(page.properties['案件工號'])
+    if (!code) continue
+    if (!reportsByCode[code]) reportsByCode[code] = { count: 0 }
+    reportsByCode[code].count++
+    if (!reportsByCode[code].lastSavedAt) {
+      const notesRaw = getText(page.properties['備註'])
+      if (notesRaw.startsWith('savedAt:')) {
+        const nl = notesRaw.indexOf('\n')
+        reportsByCode[code].lastSavedAt = nl === -1 ? notesRaw.slice(8) : notesRaw.slice(8, nl)
+      }
+    }
+  }
+
+  return projectPages.map((page: any) => {
+    const p = pageToProject(page)
+    const stats = reportsByCode[p.projectCode]
+    return { ...p, versionCount: stats?.count ?? 0, lastSavedAt: stats?.lastSavedAt }
+  })
 }
 
 function toRichTextChunks(str: string) {

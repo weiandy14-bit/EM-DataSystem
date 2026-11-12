@@ -96,6 +96,19 @@ export interface BrandReport {
   changeSummary?: string
 }
 
+export interface Project {
+  id: string
+  projectCode: string
+  projectName: string
+  year: number
+  createdDate: string
+}
+
+export interface ProjectWithStats extends Project {
+  versionCount: number
+  lastSavedAt?: string
+}
+
 export interface PriceTrend {
   year: number
   avgPrice: number
