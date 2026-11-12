@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Tabs, Spin, Alert, Button, Checkbox, Input,
-  Table, Tag, Space, Typography, message, Empty, Card,
+  Table, Tag, Space, Typography, message, Empty, Card, Modal, Select,
 } from 'antd'
 import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
   HolderOutlined, UpOutlined, DownOutlined, DownloadOutlined,
+  PlusOutlined, DeleteOutlined, ProjectOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
-import type { BrandMaster, BrandReport } from '../types'
+import type { BrandMaster, BrandReport, ProjectWithStats } from '../types'
 
 const { Title, Text } = Typography
 
@@ -222,7 +223,6 @@ function BrandSelectorTab({
 }
 
 // ---- Unified Report Preview ----
-// One row per brand; 分類 and 品名 columns use rowSpan to merge across brands
 type PreviewRow = {
   key: string
   category: string
@@ -485,7 +485,6 @@ function HistoryPanel({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {versions.map(v => {
         const isExpanded = expandedKeys.has(v.versionKey)
-        // Merge all categories from this version's reports
         const merged: Record<string, Record<string, string[]>> = {}
         for (const r of v.reports) {
           for (const [cat, catSel] of Object.entries(r.selections)) {
@@ -556,6 +555,186 @@ function HistoryPanel({
   )
 }
 
+// ---- Project List Page ----
+function ProjectListPage({
+  projects,
+  loading,
+  onSelect,
+  onDelete,
+  onCreateNew,
+}: {
+  projects: ProjectWithStats[]
+  loading: boolean
+  onSelect: (project: ProjectWithStats) => void
+  onDelete: (project: ProjectWithStats) => void
+  onCreateNew: () => void
+}) {
+  const projectsByYear = useMemo(() => {
+    const map: Record<number, ProjectWithStats[]> = {}
+    for (const p of projects) {
+      if (!map[p.year]) map[p.year] = []
+      map[p.year].push(p)
+    }
+    return map
+  }, [projects])
+
+  const years = Object.keys(projectsByYear).map(Number).sort((a, b) => b - a)
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0' }}>
+        <Spin />
+        <div style={{ marginTop: 12, color: '#888' }}>載入工程列表中…</div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 16 }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={onCreateNew}>
+          建立新工程
+        </Button>
+      </div>
+      {projects.length === 0 ? (
+        <Empty description="尚無工程，請點擊「建立新工程」" style={{ marginTop: 40 }} />
+      ) : (
+        years.map(year => (
+          <div key={year} style={{ marginBottom: 20 }}>
+            <div style={{
+              fontWeight: 600, fontSize: 15, color: '#555', marginBottom: 8,
+              padding: '4px 0', borderBottom: '2px solid #e8e8e8',
+            }}>
+              民國 {year} 年度
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {projectsByYear[year].map(project => (
+                <div
+                  key={project.id}
+                  style={{
+                    display: 'flex', alignItems: 'center',
+                    padding: '10px 16px', background: '#fafafa',
+                    border: '1px solid #f0f0f0', borderRadius: 8,
+                    cursor: 'pointer', transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#e6f4ff')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
+                  onClick={() => onSelect(project)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <Space>
+                      <Text strong style={{ fontSize: 15 }}>{project.projectName}</Text>
+                      <Tag color="default">{project.projectCode}</Tag>
+                    </Space>
+                    <div style={{ marginTop: 2 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {project.versionCount > 0
+                          ? `已存 ${project.versionCount} 版 · 最後修改：${project.lastSavedAt
+                              ? new Date(project.lastSavedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                              : '—'}`
+                          : '尚無存檔記錄'
+                        }
+                      </Text>
+                    </div>
+                  </div>
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={e => { e.stopPropagation(); onDelete(project) }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+// ---- Create Project Modal ----
+function CreateProjectModal({
+  open,
+  onClose,
+  onCreate,
+}: {
+  open: boolean
+  onClose: () => void
+  onCreate: (year: number, projectCode: string, projectName: string) => Promise<void>
+}) {
+  const currentRocYear = new Date().getFullYear() - 1911
+  const [year, setYear] = useState(currentRocYear)
+  const [projectCode, setProjectCode] = useState('')
+  const [projectName, setProjectName] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const reset = () => {
+    setProjectCode('')
+    setProjectName('')
+    setYear(new Date().getFullYear() - 1911)
+  }
+
+  const handleSubmit = async () => {
+    if (!projectCode.trim()) { message.warning('請輸入工程編號'); return }
+    if (!projectName.trim()) { message.warning('請輸入工程名稱'); return }
+    setCreating(true)
+    try {
+      await onCreate(year, projectCode.trim(), projectName.trim())
+      reset()
+      onClose()
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const yearOptions = Array.from({ length: 8 }, (_, i) => {
+    const y = currentRocYear - 2 + i
+    return { value: y, label: `${y} 年` }
+  })
+
+  return (
+    <Modal
+      title="建立新工程"
+      open={open}
+      onCancel={() => { reset(); onClose() }}
+      onOk={handleSubmit}
+      okText="建立"
+      cancelText="取消"
+      confirmLoading={creating}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+        <div>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>年度（民國）</div>
+          <Select
+            value={year}
+            onChange={setYear}
+            style={{ width: '100%' }}
+            options={yearOptions}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>工程編號</div>
+          <Input
+            placeholder="e.g. PJ2024-001"
+            value={projectCode}
+            onChange={e => setProjectCode(e.target.value)}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>工程名稱</div>
+          <Input
+            placeholder="e.g. 台北某大樓機電工程"
+            value={projectName}
+            onChange={e => setProjectName(e.target.value)}
+            onPressEnter={handleSubmit}
+          />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ---- Main Component ----
 export default function ProjectBrandSystem() {
   const [brandsMap, setBrandsMap] = useState<Record<string, BrandMaster[]>>({})
@@ -567,8 +746,17 @@ export default function ProjectBrandSystem() {
   const [projectCode, setProjectCode] = useState('')
   const [changeSummary, setChangeSummary] = useState('')
   const [saving, setSaving] = useState(false)
-  const [mainTab, setMainTab] = useState<'select' | 'preview' | 'history'>('select')
+  const [mainTab, setMainTab] = useState<'projects' | 'select' | 'preview' | 'history'>('projects')
 
+  // Project management state
+  const [projects, setProjects] = useState<ProjectWithStats[]>([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [currentProject, setCurrentProject] = useState<ProjectWithStats | null>(null)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [deleteModal, setDeleteModal] = useState<{ project: ProjectWithStats | null; visible: boolean }>({ project: null, visible: false })
+  const [deleting, setDeleting] = useState(false)
+
+  // Load brands
   useEffect(() => {
     setLoading(true)
     setError('')
@@ -587,6 +775,17 @@ export default function ProjectBrandSystem() {
       .catch((e: any) => setError(e.message ?? '載入廠牌資料失敗'))
       .finally(() => setLoading(false))
   }, [])
+
+  // Load projects
+  const loadProjects = useCallback(() => {
+    setProjectsLoading(true)
+    api.projects.list()
+      .then(setProjects)
+      .catch(() => message.error('載入工程列表失敗'))
+      .finally(() => setProjectsLoading(false))
+  }, [])
+
+  useEffect(() => { loadProjects() }, [loadProjects])
 
   const handleToggle = (category: string, productId: string, brandName: string, checked: boolean) => {
     setSelections(prev => ({
@@ -614,6 +813,79 @@ export default function ProjectBrandSystem() {
     [selections]
   )
 
+  const handleLoadVersion = (reports: BrandReport[]) => {
+    const newSelections: SelectionMap = {}
+    for (const report of reports) {
+      for (const [cat, catSel] of Object.entries(report.selections)) {
+        const catBrands = brandsMap[cat] ?? []
+        newSelections[cat] = newSelections[cat] ?? {}
+        for (const [productName, brandNames] of Object.entries(catSel)) {
+          const product = catBrands.find(b => b.productName === productName)
+          if (!product) continue
+          newSelections[cat][product.id] = {}
+          for (const brandName of brandNames) {
+            newSelections[cat][product.id][brandName] = true
+          }
+        }
+      }
+    }
+    setSelections(newSelections)
+    setMainTab('select')
+    message.success('已載入廠牌選擇，可繼續編輯')
+  }
+
+  const handleSelectProject = async (project: ProjectWithStats) => {
+    setCurrentProject(project)
+    setProjectCode(project.projectCode)
+    setChangeSummary('')
+
+    if (project.versionCount > 0) {
+      try {
+        const reports = await api.brandReports.list({ projectCode: project.projectCode })
+        if (reports.length > 0) {
+          const versions = groupByVersion(reports)
+          handleLoadVersion(versions[0].reports)
+          return
+        }
+      } catch (e) {
+        console.warn('Failed to load latest version:', e)
+      }
+    }
+    setSelections({})
+    setMainTab('select')
+  }
+
+  const handleCreateProject = async (year: number, code: string, name: string) => {
+    await api.projects.create({ year, projectCode: code, projectName: name })
+    message.success(`工程「${name}」已建立`)
+    loadProjects()
+  }
+
+  const handleDeleteProject = (project: ProjectWithStats) => {
+    setDeleteModal({ project, visible: true })
+  }
+
+  const confirmDelete = async (cascade: boolean) => {
+    if (!deleteModal.project) return
+    const proj = deleteModal.project
+    setDeleting(true)
+    try {
+      await api.projects.delete(proj.id, cascade)
+      message.success(`工程「${proj.projectName}」已刪除`)
+      if (currentProject?.id === proj.id) {
+        setCurrentProject(null)
+        setProjectCode('')
+        setSelections({})
+      }
+      setDeleteModal({ project: null, visible: false })
+      loadProjects()
+    } catch (e: any) {
+      message.error(e.message ?? '刪除失敗')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!projectCode.trim()) { message.warning('請輸入案件工號'); return }
     if (totalSelected === 0) { message.warning('請至少選擇一個廠牌'); return }
@@ -637,7 +909,6 @@ export default function ProjectBrandSystem() {
 
     if (Object.keys(combinedSelections).length === 0) { message.warning('無已選廠牌可儲存'); return }
 
-    // Generate Word file for Notion attachment
     const previewRows = computePreviewRows(brandsMap, selections, productOrder)
     let wordFileBase64: string | undefined
     let wordFileName: string | undefined
@@ -666,32 +937,13 @@ export default function ProjectBrandSystem() {
         wordFileName,
       })
       message.success(`已儲存 ${projectCode} 廠牌表`)
+      // Refresh project stats
+      loadProjects()
     } catch (e: any) {
       message.error(e.message ?? '儲存失敗')
     } finally {
       setSaving(false)
     }
-  }
-
-  const handleLoadVersion = (reports: BrandReport[]) => {
-    const newSelections: SelectionMap = {}
-    for (const report of reports) {
-      for (const [cat, catSel] of Object.entries(report.selections)) {
-        const catBrands = brandsMap[cat] ?? []
-        newSelections[cat] = newSelections[cat] ?? {}
-        for (const [productName, brandNames] of Object.entries(catSel)) {
-          const product = catBrands.find(b => b.productName === productName)
-          if (!product) continue
-          newSelections[cat][product.id] = {}
-          for (const brandName of brandNames) {
-            newSelections[cat][product.id][brandName] = true
-          }
-        }
-      }
-    }
-    setSelections(newSelections)
-    setMainTab('select')
-    message.success('已載入廠牌選擇，可繼續編輯')
   }
 
   if (loading) {
@@ -705,7 +957,39 @@ export default function ProjectBrandSystem() {
 
   if (error) return <Alert type="error" message={error} style={{ margin: 24 }} />
 
+  // Project name banner shown when a project is selected
+  const projectBanner = currentProject ? (
+    <div style={{
+      marginBottom: 10, padding: '6px 14px',
+      background: '#e6f4ff', borderRadius: 6,
+      display: 'flex', alignItems: 'center', gap: 8,
+    }}>
+      <ProjectOutlined style={{ color: '#1677ff' }} />
+      <Text style={{ color: '#1677ff' }}>工程：</Text>
+      <Text strong>{currentProject.projectName}</Text>
+      <Tag>{currentProject.projectCode}</Tag>
+    </div>
+  ) : null
+
   const mainTabItems = [
+    {
+      key: 'projects',
+      label: (
+        <Space>
+          <ProjectOutlined />
+          工程列表
+        </Space>
+      ),
+      children: (
+        <ProjectListPage
+          projects={projects}
+          loading={projectsLoading}
+          onSelect={handleSelectProject}
+          onDelete={handleDeleteProject}
+          onCreateNew={() => setCreateModalOpen(true)}
+        />
+      ),
+    },
     {
       key: 'select',
       label: (
@@ -717,12 +1001,13 @@ export default function ProjectBrandSystem() {
       ),
       children: (
         <div>
+          {projectBanner}
           <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <Input
               addonBefore="案件工號"
               placeholder="e.g. PJ2024-001"
               value={projectCode}
-              onChange={e => setProjectCode(e.target.value)}
+              onChange={e => { setProjectCode(e.target.value); setCurrentProject(null) }}
               style={{ width: 280 }}
             />
             <Input
@@ -771,13 +1056,14 @@ export default function ProjectBrandSystem() {
       label: <Space><FileTextOutlined />預覽廠牌表</Space>,
       children: (
         <div>
+          {projectBanner}
           <div style={{ marginBottom: 12 }}>
             <Space wrap>
               <Input
                 addonBefore="案件工號"
                 placeholder="e.g. PJ2024-001"
                 value={projectCode}
-                onChange={e => setProjectCode(e.target.value)}
+                onChange={e => { setProjectCode(e.target.value); setCurrentProject(null) }}
                 style={{ width: 280 }}
               />
               <Input
@@ -813,12 +1099,13 @@ export default function ProjectBrandSystem() {
       label: <Space><HistoryOutlined />歷史查詢</Space>,
       children: (
         <div>
+          {projectBanner}
           <div style={{ marginBottom: 12 }}>
             <Input
               addonBefore="案件工號"
               placeholder="輸入案件工號查詢歷史"
               value={projectCode}
-              onChange={e => setProjectCode(e.target.value)}
+              onChange={e => { setProjectCode(e.target.value); setCurrentProject(null) }}
               style={{ width: 280 }}
             />
           </div>
@@ -844,6 +1131,48 @@ export default function ProjectBrandSystem() {
         onChange={k => setMainTab(k as typeof mainTab)}
         items={mainTabItems}
       />
+
+      <CreateProjectModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={handleCreateProject}
+      />
+
+      <Modal
+        title={`刪除工程「${deleteModal.project?.projectName ?? ''}」`}
+        open={deleteModal.visible}
+        onCancel={() => setDeleteModal({ project: null, visible: false })}
+        footer={
+          <Space>
+            <Button onClick={() => setDeleteModal({ project: null, visible: false })}>取消</Button>
+            {(deleteModal.project?.versionCount ?? 0) > 0 && (
+              <Button danger onClick={() => confirmDelete(false)} loading={deleting}>
+                僅刪除工程
+              </Button>
+            )}
+            <Button
+              type="primary"
+              danger
+              onClick={() => confirmDelete((deleteModal.project?.versionCount ?? 0) > 0)}
+              loading={deleting}
+            >
+              {(deleteModal.project?.versionCount ?? 0) > 0 ? '刪除工程及存檔' : '確定刪除'}
+            </Button>
+          </Space>
+        }
+      >
+        <p>
+          確定要刪除「<strong>{deleteModal.project?.projectName}</strong>」（{deleteModal.project?.projectCode}）？
+        </p>
+        {(deleteModal.project?.versionCount ?? 0) > 0 && (
+          <Alert
+            type="warning"
+            message={`此工程有 ${deleteModal.project?.versionCount} 筆存檔記錄，可選擇是否一併刪除。`}
+            showIcon
+            style={{ marginTop: 8 }}
+          />
+        )}
+      </Modal>
     </div>
   )
 }

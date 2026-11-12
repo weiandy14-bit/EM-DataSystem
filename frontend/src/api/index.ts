@@ -1,7 +1,7 @@
 import type {
   Equipment, Material, Specification, PricingRecord,
   InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
-  BrandMaster, BrandReport
+  BrandMaster, BrandReport, Project, ProjectWithStats,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -15,6 +15,33 @@ async function loadMock() {
   const { mockEquipment, mockMaterials, mockSpecifications, mockPricing, mockInspections } =
     await import('../mock/data')
   return { mockEquipment, mockMaterials, mockSpecifications, mockPricing, mockInspections }
+}
+
+async function post<T>(path: string, data: unknown): Promise<T> {
+  const url = new URL(`${API_BASE}${path}`, location.origin)
+  const token = sessionStorage.getItem('em_auth_token')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(url.toString(), { method: 'POST', headers, body: JSON.stringify(data) })
+  if (!res.ok) {
+    let detail = ''
+    try { const b = await res.json(); detail = b.error ?? '' } catch { /* ignore */ }
+    throw new Error(`API error ${res.status}${detail ? `: ${detail}` : ''}`)
+  }
+  return res.json()
+}
+
+async function del(path: string): Promise<void> {
+  const url = new URL(`${API_BASE}${path}`, location.origin)
+  const token = sessionStorage.getItem('em_auth_token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(url.toString(), { method: 'DELETE', headers })
+  if (!res.ok) {
+    let detail = ''
+    try { const b = await res.json(); detail = b.error ?? '' } catch { /* ignore */ }
+    throw new Error(`API error ${res.status}${detail ? `: ${detail}` : ''}`)
+  }
 }
 
 async function get<T>(path: string, params?: Record<string, string | string[] | undefined>): Promise<T> {
@@ -215,6 +242,14 @@ export const api = {
       }
       return res.json()
     },
+  },
+
+  projects: {
+    list: (): Promise<ProjectWithStats[]> => get<ProjectWithStats[]>('/projects'),
+    create: (data: { year: number; projectCode: string; projectName: string }): Promise<Project> =>
+      post<Project>('/projects', data),
+    delete: (id: string, cascade: boolean): Promise<void> =>
+      del(`/projects/${id}${cascade ? '?cascade=true' : ''}`),
   },
 
   inspection: {
