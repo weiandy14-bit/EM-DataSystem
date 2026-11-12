@@ -233,56 +233,117 @@ type PreviewRow = {
   productSpan: number
 }
 
+function computePreviewRows(
+  brandsMap: Record<string, BrandMaster[]>,
+  selections: SelectionMap,
+  productOrder: Record<string, string[]>
+): PreviewRow[] {
+  const flat: Omit<PreviewRow, 'categorySpan' | 'productSpan'>[] = []
+  for (const cat of PREVIEW_ORDER) {
+    const catBrands = brandsMap[cat] ?? []
+    const catOrder = productOrder[cat] ?? catBrands.map(b => b.id)
+    const catSel = selections[cat] ?? {}
+    const orderMap = new Map(catOrder.map((id, i) => [id, i]))
+    const ordered = [...catBrands].sort(
+      (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+    )
+    for (const product of ordered) {
+      const selectedBrands = product.brands.filter(b => catSel[product.id]?.[b.name])
+      for (const b of selectedBrands) {
+        flat.push({ key: `${cat}-${product.id}-${b.name}`, category: cat, product: product.productName, brandName: b.name, grade: b.grade })
+      }
+    }
+  }
+  const result: PreviewRow[] = flat.map(r => ({ ...r, categorySpan: 0, productSpan: 0 }))
+  let i = 0
+  while (i < result.length) {
+    const cat = result[i].category
+    let catEnd = i
+    while (catEnd < result.length && result[catEnd].category === cat) catEnd++
+    result[i].categorySpan = catEnd - i
+    let j = i
+    while (j < catEnd) {
+      const prod = result[j].product
+      let prodEnd = j
+      while (prodEnd < catEnd && result[prodEnd].product === prod) prodEnd++
+      result[j].productSpan = prodEnd - j
+      j = prodEnd
+    }
+    i = catEnd
+  }
+  return result
+}
+
+async function buildWordBlob(rows: PreviewRow[], projectCode: string, changeSummary: string): Promise<Blob> {
+  const {
+    Document, Packer, Table, TableRow, TableCell,
+    Paragraph, TextRun, WidthType, AlignmentType, HeadingLevel, VerticalMergeType,
+  } = await import('docx')
+  const PT = (pt: number) => pt * 2
+  const mkCell = (
+    text: string,
+    opts?: { bold?: boolean; size?: number; align?: 'center'; vMerge?: 'restart' | 'continue' }
+  ) => {
+    const vMerge = opts?.vMerge === 'restart' ? VerticalMergeType.RESTART
+      : opts?.vMerge === 'continue' ? VerticalMergeType.CONTINUE : undefined
+    const para = opts?.vMerge === 'continue'
+      ? new Paragraph({ children: [] })
+      : new Paragraph({
+          alignment: opts?.align === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
+          children: [new TextRun({ text, bold: opts?.bold, size: opts?.size ?? PT(12) })],
+        })
+    return new TableCell({ ...(vMerge !== undefined ? { verticalMerge: vMerge } : {}), children: [para] })
+  }
+  const tableRows = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        mkCell('分類', { bold: true, align: 'center' }),
+        mkCell('品名', { bold: true }),
+        mkCell('廠牌', { bold: true }),
+      ],
+    }),
+    ...rows.map(row => {
+      const catVM = row.categorySpan > 1 ? 'restart' : row.categorySpan === 0 ? 'continue' : undefined
+      const prodVM = row.productSpan > 1 ? 'restart' : row.productSpan === 0 ? 'continue' : undefined
+      return new TableRow({
+        children: [
+          mkCell(row.category, { align: 'center', vMerge: catVM }),
+          mkCell(row.product, { vMerge: prodVM }),
+          mkCell(row.brandName, { size: PT(16) }),
+        ],
+      })
+    }),
+  ]
+  const title = projectCode ? `${projectCode}廠牌建議表` : '廠牌建議表'
+  const docChildren: InstanceType<typeof Paragraph | typeof Table>[] = [
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: title, bold: true, size: PT(18) })] }),
+  ]
+  if (changeSummary.trim()) {
+    docChildren.push(new Paragraph({ children: [new TextRun({ text: `修改摘要：${changeSummary}`, size: PT(12) })] }))
+  }
+  docChildren.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }))
+  const doc = new Document({ sections: [{ children: docChildren }] })
+  return Packer.toBlob(doc)
+}
+
 function ReportPreview({
   brandsMap,
   selections,
   productOrder,
   projectCode,
+  changeSummary,
 }: {
   brandsMap: Record<string, BrandMaster[]>
   selections: SelectionMap
   productOrder: Record<string, string[]>
   projectCode: string
+  changeSummary: string
 }) {
-  const rows = useMemo((): PreviewRow[] => {
-    const flat: Omit<PreviewRow, 'categorySpan' | 'productSpan'>[] = []
-
-    for (const cat of PREVIEW_ORDER) {
-      const catBrands = brandsMap[cat] ?? []
-      const catOrder = productOrder[cat] ?? catBrands.map(b => b.id)
-      const catSel = selections[cat] ?? {}
-      const orderMap = new Map(catOrder.map((id, i) => [id, i]))
-      const ordered = [...catBrands].sort(
-        (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
-      )
-      for (const product of ordered) {
-        const selectedBrands = product.brands.filter(b => catSel[product.id]?.[b.name])
-        for (const b of selectedBrands) {
-          flat.push({ key: `${cat}-${product.id}-${b.name}`, category: cat, product: product.productName, brandName: b.name, grade: b.grade })
-        }
-      }
-    }
-
-    // Calculate rowSpan for 分類 and 品名 columns
-    const result: PreviewRow[] = flat.map(r => ({ ...r, categorySpan: 0, productSpan: 0 }))
-    let i = 0
-    while (i < result.length) {
-      const cat = result[i].category
-      let catEnd = i
-      while (catEnd < result.length && result[catEnd].category === cat) catEnd++
-      result[i].categorySpan = catEnd - i
-      let j = i
-      while (j < catEnd) {
-        const prod = result[j].product
-        let prodEnd = j
-        while (prodEnd < catEnd && result[prodEnd].product === prod) prodEnd++
-        result[j].productSpan = prodEnd - j
-        j = prodEnd
-      }
-      i = catEnd
-    }
-    return result
-  }, [brandsMap, selections, productOrder])
+  const rows = useMemo(
+    () => computePreviewRows(brandsMap, selections, productOrder),
+    [brandsMap, selections, productOrder]
+  )
 
   if (rows.length === 0) return <Empty description="尚未選擇任何廠牌" />
 
@@ -320,70 +381,8 @@ function ReportPreview({
 
   const handleExportWord = async () => {
     if (rows.length === 0) return
-    const {
-      Document, Packer, Table, TableRow, TableCell,
-      Paragraph, TextRun, WidthType, AlignmentType, HeadingLevel, VerticalMergeType,
-    } = await import('docx')
-
-    const PT = (pt: number) => pt * 2  // docx size unit = half-points
-
-    const mkCell = (
-      text: string,
-      opts?: { bold?: boolean; size?: number; align?: 'center'; vMerge?: 'restart' | 'continue' }
-    ) => {
-      const vMerge = opts?.vMerge === 'restart'
-        ? VerticalMergeType.RESTART
-        : opts?.vMerge === 'continue'
-        ? VerticalMergeType.CONTINUE
-        : undefined
-      const para = opts?.vMerge === 'continue'
-        ? new Paragraph({ children: [] })
-        : new Paragraph({
-            alignment: opts?.align === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
-            children: [new TextRun({ text, bold: opts?.bold, size: opts?.size ?? PT(12) })],
-          })
-      return new TableCell({
-        ...(vMerge !== undefined ? { verticalMerge: vMerge } : {}),
-        children: [para],
-      })
-    }
-
-    const tableRows = [
-      new TableRow({
-        tableHeader: true,
-        children: [
-          mkCell('分類', { bold: true, align: 'center' }),
-          mkCell('品名', { bold: true }),
-          mkCell('廠牌', { bold: true }),
-        ],
-      }),
-      ...rows.map(row => {
-        const catVM = row.categorySpan > 1 ? 'restart' : row.categorySpan === 0 ? 'continue' : undefined
-        const prodVM = row.productSpan > 1 ? 'restart' : row.productSpan === 0 ? 'continue' : undefined
-        return new TableRow({
-          children: [
-            mkCell(row.category, { align: 'center', vMerge: catVM }),
-            mkCell(row.product, { vMerge: prodVM }),
-            mkCell(row.brandName, { size: PT(16) }),
-          ],
-        })
-      }),
-    ]
-
     const title = projectCode ? `${projectCode}廠牌建議表` : '廠牌建議表'
-    const doc = new Document({
-      sections: [{
-        children: [
-          new Paragraph({
-            heading: HeadingLevel.HEADING_2,
-            children: [new TextRun({ text: title, bold: true, size: PT(18) })],
-          }),
-          new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }),
-        ],
-      }],
-    })
-
-    const blob = await Packer.toBlob(doc)
+    const blob = await buildWordBlob(rows, projectCode, changeSummary)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -566,6 +565,7 @@ export default function ProjectBrandSystem() {
   const [selections, setSelections] = useState<SelectionMap>({})
   const [productOrder, setProductOrder] = useState<Record<string, string[]>>({})
   const [projectCode, setProjectCode] = useState('')
+  const [changeSummary, setChangeSummary] = useState('')
   const [saving, setSaving] = useState(false)
   const [mainTab, setMainTab] = useState<'select' | 'preview' | 'history'>('select')
 
@@ -637,12 +637,33 @@ export default function ProjectBrandSystem() {
 
     if (Object.keys(combinedSelections).length === 0) { message.warning('無已選廠牌可儲存'); return }
 
+    // Generate Word file for Notion attachment
+    const previewRows = computePreviewRows(brandsMap, selections, productOrder)
+    let wordFileBase64: string | undefined
+    let wordFileName: string | undefined
+    if (previewRows.length > 0) {
+      try {
+        const blob = await buildWordBlob(previewRows, projectCode.trim(), changeSummary)
+        const ab = await blob.arrayBuffer()
+        const bytes = new Uint8Array(ab)
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+        wordFileBase64 = btoa(binary)
+        wordFileName = `${projectCode.trim()}廠牌建議表.docx`
+      } catch (e) {
+        console.warn('Word generation failed, saving without file:', e)
+      }
+    }
+
     setSaving(true)
     try {
       await api.brandReports.create({
         reportName: projectCode.trim(),
         projectCode: projectCode.trim(),
         selections: combinedSelections,
+        changeSummary: changeSummary.trim() || undefined,
+        wordFileBase64,
+        wordFileName,
       })
       message.success(`已儲存 ${projectCode} 廠牌表`)
     } catch (e: any) {
@@ -696,13 +717,20 @@ export default function ProjectBrandSystem() {
       ),
       children: (
         <div>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <Input
               addonBefore="案件工號"
               placeholder="e.g. PJ2024-001"
               value={projectCode}
               onChange={e => setProjectCode(e.target.value)}
               style={{ width: 280 }}
+            />
+            <Input
+              addonBefore="修改摘要"
+              placeholder="本次修改說明（選填）"
+              value={changeSummary}
+              onChange={e => setChangeSummary(e.target.value)}
+              style={{ width: 320 }}
             />
           </div>
           <Tabs
@@ -752,6 +780,13 @@ export default function ProjectBrandSystem() {
                 onChange={e => setProjectCode(e.target.value)}
                 style={{ width: 280 }}
               />
+              <Input
+                addonBefore="修改摘要"
+                placeholder="本次修改說明（選填）"
+                value={changeSummary}
+                onChange={e => setChangeSummary(e.target.value)}
+                style={{ width: 300 }}
+              />
               <Button
                 type="primary"
                 icon={<SaveOutlined />}
@@ -768,6 +803,7 @@ export default function ProjectBrandSystem() {
             selections={selections}
             productOrder={productOrder}
             projectCode={projectCode}
+            changeSummary={changeSummary}
           />
         </div>
       ),

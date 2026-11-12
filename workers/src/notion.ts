@@ -224,6 +224,7 @@ export function pageToBrandReport(page: any) {
     createdDate: getDate(p['建立日期']),
     savedAt,
     notes,
+    changeSummary: getText(p['修改摘要']) || undefined,
   }
 }
 
@@ -235,21 +236,81 @@ function toRichTextChunks(str: string) {
   return chunks.length ? chunks : [{ text: { content: '' } }]
 }
 
+async function uploadWordFileToNotion(env: Env, fileBase64: string, fileName: string): Promise<string | null> {
+  try {
+    const createRes = await fetch('https://api.notion.com/v1/file-uploads', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': NOTION_VERSION,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        mode: 'single_part',
+      }),
+    })
+    if (!createRes.ok) {
+      console.error('File upload create failed:', await createRes.text())
+      return null
+    }
+    const uploadInfo = await createRes.json() as { id: string }
+
+    const bytes = Uint8Array.from(atob(fileBase64), (c: string) => c.charCodeAt(0))
+    const form = new FormData()
+    form.append('file', new Blob([bytes], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }), fileName)
+
+    const sendRes = await fetch(`https://api.notion.com/v1/file-uploads/${uploadInfo.id}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+        'Notion-Version': NOTION_VERSION,
+      },
+      body: form,
+    })
+    if (!sendRes.ok) {
+      console.error('File upload send failed:', await sendRes.text())
+      return null
+    }
+    return uploadInfo.id
+  } catch (e) {
+    console.error('uploadWordFileToNotion error:', e)
+    return null
+  }
+}
+
 export async function createBrandReport(
   env: Env,
-  data: { reportName: string; projectCode: string; selections: Record<string, Record<string, string[]>>; notes?: string }
+  data: {
+    reportName: string
+    projectCode: string
+    selections: Record<string, Record<string, string[]>>
+    notes?: string
+    changeSummary?: string
+    wordFileBase64?: string
+    wordFileName?: string
+  }
 ) {
   const savedAt = new Date().toISOString()
   const notesContent = `savedAt:${savedAt}${data.notes ? '\n' + data.notes : ''}`
-  const body = {
-    parent: { database_id: env.NOTION_DB_BRAND_REPORTS },
-    properties: {
-      '報表名稱': { title: [{ text: { content: data.reportName } }] },
-      '案件工號': { rich_text: [{ text: { content: data.projectCode } }] },
-      '選定廠牌清單': { rich_text: toRichTextChunks(JSON.stringify(data.selections)) },
-      '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
-      '備註': { rich_text: [{ text: { content: notesContent } }] },
-    },
+
+  const properties: Record<string, unknown> = {
+    '報表名稱': { title: [{ text: { content: data.reportName } }] },
+    '案件工號': { rich_text: [{ text: { content: data.projectCode } }] },
+    '選定廠牌清單': { rich_text: toRichTextChunks(JSON.stringify(data.selections)) },
+    '建立日期': { date: { start: new Date().toISOString().split('T')[0] } },
+    '備註': { rich_text: [{ text: { content: notesContent } }] },
+    '修改摘要': { rich_text: [{ text: { content: data.changeSummary ?? '' } }] },
   }
-  return notionRequest(env, 'POST', '/pages', body)
+
+  if (data.wordFileBase64 && data.wordFileName) {
+    const fileUploadId = await uploadWordFileToNotion(env, data.wordFileBase64, data.wordFileName)
+    if (fileUploadId) {
+      properties['Word附件'] = { files: [{ type: 'file_upload', file_upload: { id: fileUploadId } }] }
+    }
+  }
+
+  return notionRequest(env, 'POST', '/pages', { parent: { database_id: env.NOTION_DB_BRAND_REPORTS }, properties })
 }
