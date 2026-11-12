@@ -227,6 +227,7 @@ export const api = {
       selections: Record<string, Record<string, string[]>>
       notes?: string
       changeSummary?: string
+      changeDiff?: string
       wordFileBase64?: string
       wordFileName?: string
     }): Promise<BrandReport> => {
