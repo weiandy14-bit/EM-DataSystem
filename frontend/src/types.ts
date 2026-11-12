@@ -92,6 +92,7 @@ export interface BrandReport {
   selections: Record<string, Record<string, string[]>>
   createdDate: string
   savedAt?: string
+  changeDiff?: string
   notes: string
   changeSummary?: string
 }

@@ -7,7 +7,7 @@ import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
   HolderOutlined, UpOutlined, DownOutlined, DownloadOutlined,
   PlusOutlined, DeleteOutlined, ProjectOutlined, RightOutlined,
-  FolderOpenOutlined, ClockCircleOutlined,
+  FolderOpenOutlined, ClockCircleOutlined, SwapOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type { BrandMaster, BrandReport, ProjectWithStats } from '../types'
@@ -838,6 +838,56 @@ function CreateProjectModal({
   )
 }
 
+// ---- Diff helpers ----
+function selectionsToNamed(
+  selections: SelectionMap,
+  brandsMap: Record<string, BrandMaster[]>,
+  productOrder: Record<string, string[]>
+): Record<string, Record<string, string[]>> {
+  const result: Record<string, Record<string, string[]>> = {}
+  for (const cat of CATEGORIES) {
+    const catSel = selections[cat] ?? {}
+    const catOrder = productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)
+    const orderMap = new Map(catOrder.map((id, i) => [id, i]))
+    const orderedProducts = [...(brandsMap[cat] ?? [])].sort(
+      (a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity)
+    )
+    const byProduct: Record<string, string[]> = {}
+    for (const product of orderedProducts) {
+      const selected = Object.entries(catSel[product.id] ?? {}).filter(([, v]) => v).map(([k]) => k)
+      if (selected.length > 0) byProduct[product.productName] = selected
+    }
+    if (Object.keys(byProduct).length > 0) result[cat] = byProduct
+  }
+  return result
+}
+
+function computeDiff(
+  current: Record<string, Record<string, string[]>>,
+  previous: Record<string, Record<string, string[]>>
+): string {
+  const lines: string[] = []
+  const allCategories = new Set([...Object.keys(current), ...Object.keys(previous)])
+  for (const cat of PREVIEW_ORDER.filter(c => allCategories.has(c))) {
+    const curCat = current[cat] ?? {}
+    const prevCat = previous[cat] ?? {}
+    const allProducts = new Set([...Object.keys(curCat), ...Object.keys(prevCat)])
+    for (const product of allProducts) {
+      const curBrands = new Set(curCat[product] ?? [])
+      const prevBrands = new Set(prevCat[product] ?? [])
+      const added = [...curBrands].filter(b => !prevBrands.has(b))
+      const removed = [...prevBrands].filter(b => !curBrands.has(b))
+      if (added.length > 0 || removed.length > 0) {
+        const parts: string[] = []
+        if (removed.length > 0) parts.push(`取消 ${removed.join('、')}`)
+        if (added.length > 0) parts.push(`增加 ${added.join('、')}`)
+        lines.push(`${product}：${parts.join(' / ')}`)
+      }
+    }
+  }
+  return lines.join('\n')
+}
+
 // ---- Main Component ----
 export default function ProjectBrandSystem() {
   const [brandsMap, setBrandsMap] = useState<Record<string, BrandMaster[]>>({})
@@ -857,6 +907,7 @@ export default function ProjectBrandSystem() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [deleteModal, setDeleteModal] = useState<{ project: ProjectWithStats | null; visible: boolean }>({ project: null, visible: false })
   const [deleting, setDeleting] = useState(false)
+  const [prevVersionSelections, setPrevVersionSelections] = useState<Record<string, Record<string, string[]>> | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -913,6 +964,12 @@ export default function ProjectBrandSystem() {
     [selections]
   )
 
+  const changeDiff = useMemo(() => {
+    if (!prevVersionSelections) return ''
+    const currentNamed = selectionsToNamed(selections, brandsMap, productOrder)
+    return computeDiff(currentNamed, prevVersionSelections)
+  }, [selections, brandsMap, productOrder, prevVersionSelections])
+
   const handleLoadVersion = (reports: BrandReport[]) => {
     const newSelections: SelectionMap = {}
     for (const report of reports) {
@@ -944,8 +1001,15 @@ export default function ProjectBrandSystem() {
         const reports = await api.brandReports.list({ projectCode: project.projectCode })
         if (reports.length > 0) {
           const versions = groupByVersion(reports)
-          // Sort descending by versionKey (ISO timestamp) to guarantee latest is first
           versions.sort((a, b) => b.versionKey.localeCompare(a.versionKey))
+          // Merge latest version's named selections as the "previous" baseline for diff
+          const latestNamed: Record<string, Record<string, string[]>> = {}
+          for (const r of versions[0].reports) {
+            for (const [cat, catSel] of Object.entries(r.selections)) {
+              latestNamed[cat] = { ...(latestNamed[cat] ?? {}), ...catSel }
+            }
+          }
+          setPrevVersionSelections(latestNamed)
           handleLoadVersion(versions[0].reports)
           return
         }
@@ -953,6 +1017,7 @@ export default function ProjectBrandSystem() {
         console.warn('Failed to load latest version:', e)
       }
     }
+    setPrevVersionSelections(null)
     setSelections({})
     setMainTab('select')
   }
@@ -1036,10 +1101,13 @@ export default function ProjectBrandSystem() {
         projectCode: projectCode.trim(),
         selections: combinedSelections,
         changeSummary: changeSummary.trim() || undefined,
+        changeDiff: changeDiff || undefined,
         wordFileBase64,
         wordFileName,
       })
       message.success(`已儲存 ${projectCode} 廠牌表`)
+      // Update baseline so next diff compares against this save
+      setPrevVersionSelections(combinedSelections)
       loadProjects()
     } catch (e: any) {
       message.error(e.message ?? '儲存失敗')
@@ -1233,6 +1301,86 @@ export default function ProjectBrandSystem() {
             />
           </div>
           <HistoryPanel projectCode={projectCode} brandsMap={brandsMap} onLoad={handleLoadVersion} />
+        </div>
+      ),
+    },
+    {
+      key: 'diff',
+      label: (
+        <Space size={6}>
+          <SwapOutlined />
+          前版變動項目
+          {changeDiff && (
+            <Badge count={changeDiff.split('\n').length} size="small" style={{ backgroundColor: '#fa8c16' }} />
+          )}
+        </Space>
+      ),
+      children: (
+        <div>
+          {projectBanner}
+          {!currentProject ? (
+            <div style={{ textAlign: 'center', padding: '50px 0', color: '#aaa' }}>
+              <SwapOutlined style={{ fontSize: 36, marginBottom: 12 }} />
+              <div>請先從工程列表選擇工程</div>
+            </div>
+          ) : !prevVersionSelections ? (
+            <div style={{ textAlign: 'center', padding: '50px 0', color: '#aaa' }}>
+              <SwapOutlined style={{ fontSize: 36, marginBottom: 12 }} />
+              <div>首次存檔，無前版可比較</div>
+            </div>
+          ) : changeDiff ? (
+            <div>
+              <div style={{
+                marginBottom: 14, padding: '8px 14px',
+                background: '#fff7e6', border: '1px solid #ffd591',
+                borderRadius: 6, color: '#874d00', fontSize: 13,
+              }}>
+                與前版相比，共變動 <strong>{changeDiff.split('\n').length}</strong> 個品項
+              </div>
+              {changeDiff.split('\n').map((line, i) => {
+                const [product, ...rest] = line.split('：')
+                const detail = rest.join('：')
+                const hasRemoved = detail.includes('取消')
+                const hasAdded = detail.includes('增加')
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '10px 16px', marginBottom: 8,
+                      background: '#fff', border: '1px solid #f0f0f0',
+                      borderLeft: `4px solid ${hasRemoved && hasAdded ? '#fa8c16' : hasAdded ? '#52c41a' : '#ff4d4f'}`,
+                      borderRadius: '0 8px 8px 0',
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 12, minWidth: 24, marginTop: 2 }}>#{i + 1}</Text>
+                    <div style={{ flex: 1 }}>
+                      <Text strong style={{ fontSize: 15 }}>{product}</Text>
+                      <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {detail.split(' / ').map((part, j) => {
+                          const isAdd = part.startsWith('增加')
+                          return (
+                            <Tag
+                              key={j}
+                              color={isAdd ? 'success' : 'error'}
+                              style={{ fontSize: 13, padding: '2px 8px' }}
+                            >
+                              {part}
+                            </Tag>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '50px 0', color: '#aaa' }}>
+              <SwapOutlined style={{ fontSize: 36, marginBottom: 12, color: '#52c41a' }} />
+              <div style={{ color: '#52c41a', fontSize: 15 }}>與前版選擇完全相同，無任何變動</div>
+            </div>
+          )}
         </div>
       ),
     },
