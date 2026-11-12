@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Tabs, Spin, Alert, Button, Checkbox, Input,
-  Table, Tag, Space, Typography, message, Empty, Card, Modal, Select,
+  Table, Tag, Space, Typography, message, Empty, Card, Modal, Select, Badge,
 } from 'antd'
 import {
   SearchOutlined, SaveOutlined, FileTextOutlined, HistoryOutlined,
   HolderOutlined, UpOutlined, DownOutlined, DownloadOutlined,
-  PlusOutlined, DeleteOutlined, ProjectOutlined,
+  PlusOutlined, DeleteOutlined, ProjectOutlined, RightOutlined,
+  FolderOpenOutlined, ClockCircleOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type { BrandMaster, BrandReport, ProjectWithStats } from '../types'
@@ -16,6 +17,14 @@ const { Title, Text } = Typography
 const CATEGORIES = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 const PREVIEW_ORDER = ['電力', '弱電', '給排水', '消防', '空調', '其他']
 
+const CAT_COLORS: Record<string, string> = {
+  '電力': '#fa8c16',
+  '弱電': '#722ed1',
+  '給排水': '#13c2c2',
+  '消防': '#f5222d',
+  '空調': '#1677ff',
+  '其他': '#8c8c8c',
+}
 
 // category → productId → brandName → selected
 type SelectionMap = Record<string, Record<string, Record<string, boolean>>>
@@ -51,6 +60,7 @@ function DraggableProductList({
   const dragIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const catColor = CAT_COLORS[category] ?? '#1677ff'
 
   const orderedProducts = useMemo(() => {
     const orderMap = new Map(productOrder.map((id, i) => [id, i]))
@@ -104,39 +114,49 @@ function DraggableProductList({
             onDragEnd={draggingEnabled ? handleDragEnd : undefined}
             onDragOver={draggingEnabled ? e => e.preventDefault() : undefined}
             style={{
-              marginBottom: 4,
-              border: `1px solid ${isDragOver ? '#1677ff' : '#f0f0f0'}`,
-              borderRadius: 6,
+              marginBottom: 6,
+              border: `1px solid ${isDragOver ? catColor : (selectedCount > 0 ? catColor + '55' : '#f0f0f0')}`,
+              borderLeft: `3px solid ${selectedCount > 0 ? catColor : (isDragOver ? catColor : '#e0e0e0')}`,
+              borderRadius: '0 6px 6px 0',
               background: '#fff',
-              transition: 'border-color 0.15s',
+              transition: 'all 0.15s',
+              boxShadow: selectedCount > 0 ? `0 1px 4px ${catColor}22` : 'none',
             }}
           >
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '6px 12px',
-                background: '#fafafa',
-                borderRadius: isOpen ? '6px 6px 0 0' : 6,
+                padding: '7px 12px',
+                background: selectedCount > 0 ? `${catColor}08` : '#fafafa',
+                borderRadius: isOpen ? '0 6px 0 0' : '0 6px 6px 0',
                 userSelect: 'none',
               }}
             >
               {draggingEnabled && (
-                <HolderOutlined style={{ color: '#bbb', marginRight: 8, cursor: 'grab', fontSize: 14 }} />
+                <HolderOutlined style={{ color: '#ccc', marginRight: 8, cursor: 'grab', fontSize: 13 }} />
               )}
               <Space style={{ flex: 1, cursor: 'pointer' }} onClick={() => toggleOpen(product.id)}>
-                <Text strong style={{ fontSize: 16 }}>{product.productName}</Text>
-                {selectedCount > 0 && <Tag color="blue">{selectedCount} 項已選</Tag>}
+                <Text strong style={{ fontSize: 15 }}>{product.productName}</Text>
+                {selectedCount > 0 && (
+                  <Tag color={catColor} style={{ margin: 0, fontWeight: 600 }}>
+                    {selectedCount} 項
+                  </Tag>
+                )}
               </Space>
               <span
-                style={{ cursor: 'pointer', color: '#999', marginLeft: 8 }}
+                style={{ cursor: 'pointer', color: '#bbb', marginLeft: 8, fontSize: 13 }}
                 onClick={() => toggleOpen(product.id)}
               >
                 {isOpen ? <UpOutlined /> : <DownOutlined />}
               </span>
             </div>
             {isOpen && (
-              <div style={{ padding: '8px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+              <div style={{
+                padding: '10px 14px',
+                borderTop: `1px solid ${selectedCount > 0 ? catColor + '33' : '#f0f0f0'}`,
+                display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
+              }}>
                 {product.brands.map(b => (
                   <Checkbox
                     key={b.name}
@@ -144,8 +164,8 @@ function DraggableProductList({
                     onChange={e => onToggle(category, product.id, b.name, e.target.checked)}
                   >
                     <Space size={4}>
-                      <span style={{ fontSize: 16 }}>{b.name}</span>
-                      <Tag color={gradeColor(b.grade)} style={{ fontSize: 12, margin: 0 }}>{b.grade}</Tag>
+                      <span style={{ fontSize: 15 }}>{b.name}</span>
+                      <Tag color={gradeColor(b.grade)} style={{ fontSize: 11, margin: 0, padding: '0 5px' }}>{b.grade}</Tag>
                     </Space>
                   </Checkbox>
                 ))}
@@ -175,6 +195,7 @@ function BrandSelectorTab({
   onReorder: (category: string, newOrder: string[]) => void
 }) {
   const [keyword, setKeyword] = useState('')
+  const catColor = CAT_COLORS[category] ?? '#1677ff'
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
@@ -193,16 +214,26 @@ function BrandSelectorTab({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+        padding: '8px 12px',
+        background: `${catColor}0a`,
+        borderRadius: 6,
+        borderLeft: `3px solid ${catColor}`,
+      }}>
         <Input
-          prefix={<SearchOutlined />}
+          prefix={<SearchOutlined style={{ color: catColor }} />}
           placeholder="搜尋品名或廠牌（搜尋時停用拖曳排序）"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           allowClear
-          style={{ flex: 1 }}
+          style={{ flex: 1, background: 'transparent', border: 'none', boxShadow: 'none' }}
         />
-        <Text type="secondary">已選 {selectedCount} 項</Text>
+        {selectedCount > 0 && (
+          <Tag color={catColor} style={{ fontWeight: 600, fontSize: 13 }}>
+            已選 {selectedCount} 項
+          </Tag>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -345,7 +376,7 @@ function ReportPreview({
     [brandsMap, selections, productOrder]
   )
 
-  if (rows.length === 0) return <Empty description="尚未選擇任何廠牌" />
+  if (rows.length === 0) return <Empty description="尚未選擇任何廠牌" style={{ marginTop: 40 }} />
 
   const columns = [
     {
@@ -394,10 +425,10 @@ function ReportPreview({
   return (
     <div>
       {projectCode && (
-        <Title level={5} style={{ marginBottom: 8 }}>{projectCode}廠牌建議表</Title>
+        <Title level={5} style={{ marginBottom: 8, color: '#1a7a4a' }}>{projectCode}廠牌建議表</Title>
       )}
-      <div style={{ marginBottom: 8 }}>
-        <Button icon={<DownloadOutlined />} onClick={handleExportWord} disabled={rows.length === 0}>
+      <div style={{ marginBottom: 12 }}>
+        <Button icon={<DownloadOutlined />} onClick={handleExportWord} disabled={rows.length === 0} type="default">
           匯出 Word
         </Button>
       </div>
@@ -467,9 +498,14 @@ function HistoryPanel({
       .finally(() => setLoading(false))
   }, [projectCode])
 
-  if (!projectCode.trim()) return <Text type="secondary">請輸入案件工號以查詢歷史記錄</Text>
-  if (loading) return <Spin />
-  if (reports.length === 0) return <Empty description="無歷史記錄" />
+  if (!projectCode.trim()) return (
+    <div style={{ textAlign: 'center', padding: '40px 0', color: '#aaa' }}>
+      <HistoryOutlined style={{ fontSize: 32, marginBottom: 8 }} />
+      <div>請輸入案件工號以查詢歷史記錄</div>
+    </div>
+  )
+  if (loading) return <Spin style={{ display: 'block', margin: '40px auto' }} />
+  if (reports.length === 0) return <Empty description="無歷史記錄" style={{ marginTop: 40 }} />
 
   const versions = groupByVersion(reports)
 
@@ -482,9 +518,10 @@ function HistoryPanel({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {versions.map(v => {
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {versions.map((v, idx) => {
         const isExpanded = expandedKeys.has(v.versionKey)
+        const versionNo = versions.length - idx
         const merged: Record<string, Record<string, string[]>> = {}
         for (const r of v.reports) {
           for (const [cat, catSel] of Object.entries(r.selections)) {
@@ -500,17 +537,27 @@ function HistoryPanel({
             const count = Object.values(catSel).reduce((a, b) => a + b.length, 0)
             return `${cat} ${count}項`
           }).join(' / ')
+        const changeSummary = v.reports[0]?.changeSummary
 
         return (
           <Card
             key={v.versionKey}
             size="small"
-            style={{ borderRadius: 8 }}
+            style={{
+              borderRadius: 8,
+              borderLeft: `3px solid ${idx === 0 ? '#1677ff' : '#d9d9d9'}`,
+              boxShadow: idx === 0 ? '0 2px 8px rgba(22,119,255,0.08)' : 'none',
+            }}
+            styles={{ header: { padding: '8px 14px' }, body: { padding: '10px 14px' } }}
             title={
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <Space>
-                  <Text strong style={{ fontSize: 15 }}>{v.displayTime}</Text>
-                  <Tag color="blue">共 {totalBrands} 項廠牌</Tag>
+                  <Badge
+                    count={`V${versionNo}`}
+                    style={{ backgroundColor: idx === 0 ? '#1677ff' : '#8c8c8c', fontSize: 11, fontWeight: 700 }}
+                  />
+                  <Text strong style={{ fontSize: 14 }}>{v.displayTime}</Text>
+                  <Tag color="blue" style={{ margin: 0 }}>共 {totalBrands} 項</Tag>
                 </Space>
                 <Space>
                   <Button size="small" onClick={() => toggleExpand(v.versionKey)}>
@@ -523,15 +570,27 @@ function HistoryPanel({
               </div>
             }
           >
+            {changeSummary && (
+              <div style={{
+                marginBottom: 6, padding: '4px 10px',
+                background: '#fffbe6', borderRadius: 4,
+                fontSize: 12, color: '#ad8b00', borderLeft: '2px solid #fadb14',
+              }}>
+                摘要：{changeSummary}
+              </div>
+            )}
             <Text type="secondary" style={{ fontSize: 13 }}>{catSummary}</Text>
             {isExpanded && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 10 }}>
                 {Object.entries(merged).map(([cat, catSel]) =>
                   Object.keys(catSel).length === 0 ? null : (
-                    <div key={cat} style={{ marginBottom: 6 }}>
-                      <Text strong style={{ fontSize: 13 }}>{cat}：</Text>
+                    <div key={cat} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: CAT_COLORS[cat] ?? '#8c8c8c' }} />
+                        <Text strong style={{ fontSize: 13 }}>{cat}</Text>
+                      </div>
                       {Object.entries(catSel).map(([productName, brands]) => (
-                        <div key={productName} style={{ paddingLeft: 12, marginTop: 2 }}>
+                        <div key={productName} style={{ paddingLeft: 16, marginTop: 3 }}>
                           <Text style={{ fontSize: 13 }}>{productName}　</Text>
                           <Space wrap size={4}>
                             {brands.map(b => {
@@ -582,67 +641,104 @@ function ProjectListPage({
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0' }}>
-        <Spin />
-        <div style={{ marginTop: 12, color: '#888' }}>載入工程列表中…</div>
+      <div style={{ textAlign: 'center', padding: '60px 0' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 16, color: '#888' }}>載入工程列表中…</div>
       </div>
     )
   }
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={onCreateNew}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <Space>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            共 {projects.length} 個工程
+          </Text>
+        </Space>
+        <Button type="primary" icon={<PlusOutlined />} onClick={onCreateNew} size="middle">
           建立新工程
         </Button>
       </div>
+
       {projects.length === 0 ? (
-        <Empty description="尚無工程，請點擊「建立新工程」" style={{ marginTop: 40 }} />
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <ProjectOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+          <div style={{ color: '#aaa', fontSize: 15 }}>尚無工程</div>
+          <div style={{ color: '#bbb', fontSize: 13, marginTop: 4 }}>點擊「建立新工程」開始規劃</div>
+        </div>
       ) : (
         years.map(year => (
-          <div key={year} style={{ marginBottom: 20 }}>
-            <div style={{
-              fontWeight: 600, fontSize: 15, color: '#555', marginBottom: 8,
-              padding: '4px 0', borderBottom: '2px solid #e8e8e8',
-            }}>
-              民國 {year} 年度
+          <div key={year} style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 4, height: 20, background: '#1677ff', borderRadius: 2 }} />
+              <Text strong style={{ fontSize: 15, color: '#262626' }}>民國 {year} 年度</Text>
+              <Tag color="blue" style={{ margin: 0 }}>{projectsByYear[year].length} 個</Tag>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {projectsByYear[year].map(project => (
                 <div
                   key={project.id}
                   style={{
                     display: 'flex', alignItems: 'center',
-                    padding: '10px 16px', background: '#fafafa',
-                    border: '1px solid #f0f0f0', borderRadius: 8,
-                    cursor: 'pointer', transition: 'background 0.15s',
+                    padding: '12px 16px 12px 14px',
+                    background: '#fff',
+                    border: '1px solid #f0f0f0',
+                    borderLeft: '4px solid #1677ff',
+                    borderRadius: '0 8px 8px 0',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#e6f4ff')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.boxShadow = '0 4px 14px rgba(22,119,255,0.14)'
+                    e.currentTarget.style.borderLeftColor = '#52c41a'
+                    e.currentTarget.style.background = '#fafffe'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'
+                    e.currentTarget.style.borderLeftColor = '#1677ff'
+                    e.currentTarget.style.background = '#fff'
+                  }}
                   onClick={() => onSelect(project)}
                 >
                   <div style={{ flex: 1 }}>
-                    <Space>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <Text strong style={{ fontSize: 15 }}>{project.projectName}</Text>
-                      <Tag color="default">{project.projectCode}</Tag>
-                    </Space>
-                    <div style={{ marginTop: 2 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {project.versionCount > 0
-                          ? `已存 ${project.versionCount} 版 · 最後修改：${project.lastSavedAt
-                              ? new Date(project.lastSavedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
-                              : '—'}`
-                          : '尚無存檔記錄'
-                        }
-                      </Text>
+                      <Tag style={{ margin: 0, color: '#595959', background: '#f5f5f5', border: '1px solid #d9d9d9' }}>
+                        {project.projectCode}
+                      </Tag>
+                    </div>
+                    <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      {project.versionCount > 0 ? (
+                        <>
+                          <Tag color="green" style={{ margin: 0 }}>
+                            已存 {project.versionCount} 版
+                          </Tag>
+                          {project.lastSavedAt && (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <ClockCircleOutlined style={{ marginRight: 4 }} />
+                              {new Date(project.lastSavedAt).toLocaleDateString('zh-TW', {
+                                year: 'numeric', month: '2-digit', day: '2-digit',
+                              })}
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 12 }}>尚無存檔記錄</Text>
+                      )}
                     </div>
                   </div>
-                  <Button
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={e => { e.stopPropagation(); onDelete(project) }}
-                  />
+                  <Space>
+                    <RightOutlined style={{ color: '#c0c0c0', fontSize: 12 }} />
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={e => { e.stopPropagation(); onDelete(project) }}
+                    />
+                  </Space>
                 </div>
               ))}
             </div>
@@ -690,22 +786,28 @@ function CreateProjectModal({
 
   const yearOptions = Array.from({ length: 8 }, (_, i) => {
     const y = currentRocYear - 2 + i
-    return { value: y, label: `${y} 年` }
+    return { value: y, label: `民國 ${y} 年` }
   })
 
   return (
     <Modal
-      title="建立新工程"
+      title={
+        <Space>
+          <div style={{ width: 4, height: 18, background: '#1677ff', borderRadius: 2 }} />
+          建立新工程
+        </Space>
+      }
       open={open}
       onCancel={() => { reset(); onClose() }}
       onOk={handleSubmit}
-      okText="建立"
+      okText="建立工程"
       cancelText="取消"
       confirmLoading={creating}
+      width={440}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
         <div>
-          <div style={{ marginBottom: 4, fontWeight: 500 }}>年度（民國）</div>
+          <div style={{ marginBottom: 6, fontWeight: 500, color: '#262626' }}>年度（民國）</div>
           <Select
             value={year}
             onChange={setYear}
@@ -714,15 +816,16 @@ function CreateProjectModal({
           />
         </div>
         <div>
-          <div style={{ marginBottom: 4, fontWeight: 500 }}>工程編號</div>
+          <div style={{ marginBottom: 6, fontWeight: 500, color: '#262626' }}>工程編號</div>
           <Input
-            placeholder="e.g. PJ2024-001"
+            placeholder="e.g. PJ115-001"
             value={projectCode}
             onChange={e => setProjectCode(e.target.value)}
+            prefix={<Text type="secondary" style={{ fontSize: 12 }}>#</Text>}
           />
         </div>
         <div>
-          <div style={{ marginBottom: 4, fontWeight: 500 }}>工程名稱</div>
+          <div style={{ marginBottom: 6, fontWeight: 500, color: '#262626' }}>工程名稱</div>
           <Input
             placeholder="e.g. 台北某大樓機電工程"
             value={projectName}
@@ -748,7 +851,6 @@ export default function ProjectBrandSystem() {
   const [saving, setSaving] = useState(false)
   const [mainTab, setMainTab] = useState<'projects' | 'select' | 'preview' | 'history'>('projects')
 
-  // Project management state
   const [projects, setProjects] = useState<ProjectWithStats[]>([])
   const [projectsLoading, setProjectsLoading] = useState(false)
   const [currentProject, setCurrentProject] = useState<ProjectWithStats | null>(null)
@@ -756,7 +858,6 @@ export default function ProjectBrandSystem() {
   const [deleteModal, setDeleteModal] = useState<{ project: ProjectWithStats | null; visible: boolean }>({ project: null, visible: false })
   const [deleting, setDeleting] = useState(false)
 
-  // Load brands
   useEffect(() => {
     setLoading(true)
     setError('')
@@ -776,7 +877,6 @@ export default function ProjectBrandSystem() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Load projects
   const loadProjects = useCallback(() => {
     setProjectsLoading(true)
     api.projects.list()
@@ -937,7 +1037,6 @@ export default function ProjectBrandSystem() {
         wordFileName,
       })
       message.success(`已儲存 ${projectCode} 廠牌表`)
-      // Refresh project stats
       loadProjects()
     } catch (e: any) {
       message.error(e.message ?? '儲存失敗')
@@ -957,17 +1056,26 @@ export default function ProjectBrandSystem() {
 
   if (error) return <Alert type="error" message={error} style={{ margin: 24 }} />
 
-  // Project name banner shown when a project is selected
   const projectBanner = currentProject ? (
     <div style={{
-      marginBottom: 10, padding: '6px 14px',
-      background: '#e6f4ff', borderRadius: 6,
-      display: 'flex', alignItems: 'center', gap: 8,
+      marginBottom: 14,
+      padding: '10px 16px',
+      background: 'linear-gradient(90deg, #e6f4ff 0%, #f8fbff 100%)',
+      borderLeft: '4px solid #1677ff',
+      borderRadius: '0 8px 8px 0',
+      display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <ProjectOutlined style={{ color: '#1677ff' }} />
-      <Text style={{ color: '#1677ff' }}>工程：</Text>
-      <Text strong>{currentProject.projectName}</Text>
-      <Tag>{currentProject.projectCode}</Tag>
+      <FolderOpenOutlined style={{ color: '#1677ff', fontSize: 18 }} />
+      <div>
+        <div style={{ fontSize: 11, color: '#1677ff', marginBottom: 2 }}>目前工程</div>
+        <Space>
+          <Text strong style={{ fontSize: 15 }}>{currentProject.projectName}</Text>
+          <Tag color="blue" style={{ margin: 0 }}>{currentProject.projectCode}</Tag>
+          {currentProject.versionCount > 0 && (
+            <Tag color="green" style={{ margin: 0 }}>已存 {currentProject.versionCount} 版</Tag>
+          )}
+        </Space>
+      </div>
     </div>
   ) : null
 
@@ -975,9 +1083,12 @@ export default function ProjectBrandSystem() {
     {
       key: 'projects',
       label: (
-        <Space>
+        <Space size={6}>
           <ProjectOutlined />
           工程列表
+          {projects.length > 0 && (
+            <Badge count={projects.length} size="small" style={{ backgroundColor: '#8c8c8c' }} />
+          )}
         </Space>
       ),
       children: (
@@ -993,25 +1104,27 @@ export default function ProjectBrandSystem() {
     {
       key: 'select',
       label: (
-        <Space>
+        <Space size={6}>
           <FileTextOutlined />
           廠牌選擇
-          {totalSelected > 0 && <Tag color="blue">{totalSelected}</Tag>}
+          {totalSelected > 0 && (
+            <Badge count={totalSelected} size="small" style={{ backgroundColor: '#1677ff' }} />
+          )}
         </Space>
       ),
       children: (
         <div>
           {projectBanner}
-          <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Input
-              addonBefore="案件工號"
-              placeholder="e.g. PJ2024-001"
+              addonBefore={<Text style={{ fontSize: 13 }}>案件工號</Text>}
+              placeholder="e.g. PJ115-001"
               value={projectCode}
               onChange={e => { setProjectCode(e.target.value); setCurrentProject(null) }}
               style={{ width: 280 }}
             />
             <Input
-              addonBefore="修改摘要"
+              addonBefore={<Text style={{ fontSize: 13 }}>修改摘要</Text>}
               placeholder="本次修改說明（選填）"
               value={changeSummary}
               onChange={e => setChangeSummary(e.target.value)}
@@ -1022,31 +1135,38 @@ export default function ProjectBrandSystem() {
             activeKey={activeCategory}
             onChange={setActiveCategory}
             type="card"
-            items={CATEGORIES.map(cat => ({
-              key: cat,
-              label: (
-                <Space size={4}>
-                  {cat}
-                  {Object.values(selections[cat] ?? {}).some(p => Object.values(p).some(Boolean)) && (
-                    <Tag color="blue" style={{ margin: 0 }}>
-                      {Object.values(selections[cat] ?? {}).reduce(
-                        (a, p) => a + Object.values(p).filter(Boolean).length, 0
-                      )}
-                    </Tag>
-                  )}
-                </Space>
-              ),
-              children: (
-                <BrandSelectorTab
-                  category={cat}
-                  brands={brandsMap[cat] ?? []}
-                  selections={selections}
-                  productOrder={productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)}
-                  onToggle={handleToggle}
-                  onReorder={handleReorder}
-                />
-              ),
-            }))}
+            items={CATEGORIES.map(cat => {
+              const catColor = CAT_COLORS[cat] ?? '#8c8c8c'
+              const catCount = Object.values(selections[cat] ?? {}).reduce(
+                (a, p) => a + Object.values(p).filter(Boolean).length, 0
+              )
+              return {
+                key: cat,
+                label: (
+                  <Space size={5}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: activeCategory === cat ? catColor : '#d9d9d9',
+                      transition: 'background 0.2s',
+                    }} />
+                    {cat}
+                    {catCount > 0 && (
+                      <Badge count={catCount} size="small" style={{ backgroundColor: catColor }} />
+                    )}
+                  </Space>
+                ),
+                children: (
+                  <BrandSelectorTab
+                    category={cat}
+                    brands={brandsMap[cat] ?? []}
+                    selections={selections}
+                    productOrder={productOrder[cat] ?? (brandsMap[cat] ?? []).map(b => b.id)}
+                    onToggle={handleToggle}
+                    onReorder={handleReorder}
+                  />
+                ),
+              }
+            })}
           />
         </div>
       ),
@@ -1057,11 +1177,11 @@ export default function ProjectBrandSystem() {
       children: (
         <div>
           {projectBanner}
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 14 }}>
             <Space wrap>
               <Input
                 addonBefore="案件工號"
-                placeholder="e.g. PJ2024-001"
+                placeholder="e.g. PJ115-001"
                 value={projectCode}
                 onChange={e => { setProjectCode(e.target.value); setCurrentProject(null) }}
                 style={{ width: 280 }}
@@ -1100,7 +1220,7 @@ export default function ProjectBrandSystem() {
       children: (
         <div>
           {projectBanner}
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 14 }}>
             <Input
               addonBefore="案件工號"
               placeholder="輸入案件工號查詢歷史"
@@ -1117,15 +1237,36 @@ export default function ProjectBrandSystem() {
 
   return (
     <div style={{ padding: '0 0 40px' }}>
-      <div style={{ marginBottom: 16 }}>
+      {/* Page Header */}
+      <div style={{
+        marginBottom: 20,
+        padding: '14px 20px',
+        background: 'linear-gradient(135deg, #f6ffed 0%, #fff 60%)',
+        border: '1px solid #b7eb8f',
+        borderLeft: '4px solid #52c41a',
+        borderRadius: '0 10px 10px 0',
+      }}>
         <Space align="center">
-          <FileTextOutlined style={{ fontSize: 22, color: '#1a7a4a' }} />
-          <Title level={4} style={{ margin: 0, color: '#1a7a4a' }}>案件廠牌表規劃系統</Title>
+          <div style={{
+            background: '#1a7a4a',
+            borderRadius: 8,
+            width: 38, height: 38,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <FileTextOutlined style={{ fontSize: 20, color: '#fff' }} />
+          </div>
+          <div>
+            <Title level={4} style={{ margin: 0, color: '#1a7a4a', lineHeight: 1.4 }}>
+              案件廠牌表規劃系統
+            </Title>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              管理工程案件，依類別規劃廠牌，存檔並追蹤修改歷程
+            </Text>
+          </div>
         </Space>
-        <div style={{ marginTop: 4 }}>
-          <Text type="secondary">依類別選擇廠牌，生成案件廠牌表，並儲存歷史記錄</Text>
-        </div>
       </div>
+
       <Tabs
         activeKey={mainTab}
         onChange={k => setMainTab(k as typeof mainTab)}
@@ -1139,7 +1280,12 @@ export default function ProjectBrandSystem() {
       />
 
       <Modal
-        title={`刪除工程「${deleteModal.project?.projectName ?? ''}」`}
+        title={
+          <Space>
+            <DeleteOutlined style={{ color: '#ff4d4f' }} />
+            刪除工程
+          </Space>
+        }
         open={deleteModal.visible}
         onCancel={() => setDeleteModal({ project: null, visible: false })}
         footer={
@@ -1161,7 +1307,7 @@ export default function ProjectBrandSystem() {
           </Space>
         }
       >
-        <p>
+        <p style={{ margin: '12px 0 4px' }}>
           確定要刪除「<strong>{deleteModal.project?.projectName}</strong>」（{deleteModal.project?.projectCode}）？
         </p>
         {(deleteModal.project?.versionCount ?? 0) > 0 && (
@@ -1169,7 +1315,7 @@ export default function ProjectBrandSystem() {
             type="warning"
             message={`此工程有 ${deleteModal.project?.versionCount} 筆存檔記錄，可選擇是否一併刪除。`}
             showIcon
-            style={{ marginTop: 8 }}
+            style={{ marginTop: 10 }}
           />
         )}
       </Modal>
