@@ -907,7 +907,10 @@ export default function ProjectBrandSystem() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [deleteModal, setDeleteModal] = useState<{ project: ProjectWithStats | null; visible: boolean }>({ project: null, visible: false })
   const [deleting, setDeleting] = useState(false)
+  // prevVersionSelections: second-to-last version — baseline for diff display
+  // loadedVersionSelections: the version just loaded from Notion — becomes prevVersionSelections after next save
   const [prevVersionSelections, setPrevVersionSelections] = useState<Record<string, Record<string, string[]>> | null>(null)
+  const [loadedVersionSelections, setLoadedVersionSelections] = useState<Record<string, Record<string, string[]>> | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -1002,14 +1005,22 @@ export default function ProjectBrandSystem() {
         if (reports.length > 0) {
           const versions = groupByVersion(reports)
           versions.sort((a, b) => b.versionKey.localeCompare(a.versionKey))
-          // Merge latest version's named selections as the "previous" baseline for diff
-          const latestNamed: Record<string, Record<string, string[]>> = {}
-          for (const r of versions[0].reports) {
-            for (const [cat, catSel] of Object.entries(r.selections)) {
-              latestNamed[cat] = { ...(latestNamed[cat] ?? {}), ...catSel }
+
+          // Extract named selections helper
+          const toNamed = (reps: BrandReport[]) => {
+            const named: Record<string, Record<string, string[]>> = {}
+            for (const r of reps) {
+              for (const [cat, catSel] of Object.entries(r.selections)) {
+                named[cat] = { ...(named[cat] ?? {}), ...catSel }
+              }
             }
+            return named
           }
-          setPrevVersionSelections(latestNamed)
+
+          // versions[0] = latest (what we load), versions[1] = previous (baseline for diff)
+          const latestNamed = toNamed(versions[0].reports)
+          setLoadedVersionSelections(latestNamed)
+          setPrevVersionSelections(versions.length > 1 ? toNamed(versions[1].reports) : null)
           handleLoadVersion(versions[0].reports)
           return
         }
@@ -1018,6 +1029,7 @@ export default function ProjectBrandSystem() {
       }
     }
     setPrevVersionSelections(null)
+    setLoadedVersionSelections(null)
     setSelections({})
     setMainTab('select')
   }
@@ -1106,8 +1118,9 @@ export default function ProjectBrandSystem() {
         wordFileName,
       })
       message.success(`已儲存 ${projectCode} 廠牌表`)
-      // Update baseline so next diff compares against this save
-      setPrevVersionSelections(combinedSelections)
+      // After save: loaded version becomes the new "previous", current becomes the new "loaded"
+      setPrevVersionSelections(loadedVersionSelections)
+      setLoadedVersionSelections(combinedSelections)
       loadProjects()
     } catch (e: any) {
       message.error(e.message ?? '儲存失敗')
