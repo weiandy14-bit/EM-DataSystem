@@ -191,13 +191,20 @@ export function pageToBrandReport(page: any) {
   const category = getSelect(p['類別'])
   const notesRaw = getText(p['備註'])
 
-  // Extract savedAt timestamp embedded as first line: "savedAt:2024-01-15T10:30:00.000Z"
+  // Extract savedAt and changeDiff from embedded header lines
   let savedAt: string | undefined
+  let changeDiff: string | undefined
   let notes = notesRaw
   if (notesRaw.startsWith('savedAt:')) {
     const nl = notesRaw.indexOf('\n')
     savedAt = nl === -1 ? notesRaw.slice(8) : notesRaw.slice(8, nl)
     notes = nl === -1 ? '' : notesRaw.slice(nl + 1)
+  }
+  if (notes.startsWith('changeDiff:')) {
+    const nl = notes.indexOf('\n')
+    const raw = nl === -1 ? notes.slice(11) : notes.slice(11, nl)
+    changeDiff = raw.replace(/;;/g, '\n')
+    notes = nl === -1 ? '' : notes.slice(nl + 1)
   }
 
   let parsed: any = {}
@@ -224,6 +231,7 @@ export function pageToBrandReport(page: any) {
     selections,
     createdDate: getDate(p['建立日期']),
     savedAt,
+    changeDiff,
     notes,
     changeSummary: getText(p['修改摘要']) || undefined,
   }
@@ -364,12 +372,17 @@ export async function createBrandReport(
     selections: Record<string, Record<string, string[]>>
     notes?: string
     changeSummary?: string
+    changeDiff?: string
     wordFileBase64?: string
     wordFileName?: string
   }
 ) {
   const savedAt = new Date().toISOString()
-  const notesContent = `savedAt:${savedAt}${data.notes ? '\n' + data.notes : ''}`
+  let notesContent = `savedAt:${savedAt}`
+  if (data.changeDiff?.trim()) {
+    notesContent += `\nchangeDiff:${data.changeDiff.replace(/\n/g, ';;')}`
+  }
+  if (data.notes) notesContent += '\n' + data.notes
 
   const properties: Record<string, unknown> = {
     '報表名稱': { title: [{ text: { content: data.reportName } }] },

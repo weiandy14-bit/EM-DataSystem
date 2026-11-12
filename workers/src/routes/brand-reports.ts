@@ -29,6 +29,7 @@ export async function handleBrandReports(req: Request, env: Env, subpath: string
       selections: Record<string, string[]>
       notes?: string
       changeSummary?: string
+      changeDiff?: string
       wordFileBase64?: string
       wordFileName?: string
     }
@@ -37,7 +38,7 @@ export async function handleBrandReports(req: Request, env: Env, subpath: string
       return json({ error: 'Missing required fields' }, 400)
     }
 
-    const page = await createBrandReport(env, body)
+    const page = await createBrandReport(env, { ...body, changeDiff: body.changeDiff })
     return json(pageToBrandReport(page), 201)
   }
 
