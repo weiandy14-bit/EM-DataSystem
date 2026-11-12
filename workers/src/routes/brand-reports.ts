@@ -28,6 +28,9 @@ export async function handleBrandReports(req: Request, env: Env, subpath: string
       category: string
       selections: Record<string, string[]>
       notes?: string
+      changeSummary?: string
+      wordFileBase64?: string
+      wordFileName?: string
     }
 
     if (!body.reportName || !body.projectCode || !body.selections) {

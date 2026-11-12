@@ -199,6 +199,9 @@ export const api = {
       projectCode: string
       selections: Record<string, Record<string, string[]>>
       notes?: string
+      changeSummary?: string
+      wordFileBase64?: string
+      wordFileName?: string
     }): Promise<BrandReport> => {
       const url = new URL(`${API_BASE}/brand-reports`, location.origin)
       const token = sessionStorage.getItem('em_auth_token')

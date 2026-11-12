@@ -93,6 +93,7 @@ export interface BrandReport {
   createdDate: string
   savedAt?: string
   notes: string
+  changeSummary?: string
 }
 
 export interface PriceTrend {
