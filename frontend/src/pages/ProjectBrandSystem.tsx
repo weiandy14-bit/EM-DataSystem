@@ -55,7 +55,7 @@ function DraggableProductList({
   onReorder: (category: string, newOrder: string[]) => void
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(
-    () => new Set(products.slice(0, 3).map(p => p.id))
+    () => new Set(products.map(p => p.id))
   )
   const dragIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
@@ -944,6 +944,8 @@ export default function ProjectBrandSystem() {
         const reports = await api.brandReports.list({ projectCode: project.projectCode })
         if (reports.length > 0) {
           const versions = groupByVersion(reports)
+          // Sort descending by versionKey (ISO timestamp) to guarantee latest is first
+          versions.sort((a, b) => b.versionKey.localeCompare(a.versionKey))
           handleLoadVersion(versions[0].reports)
           return
         }
@@ -988,6 +990,7 @@ export default function ProjectBrandSystem() {
 
   const handleSave = async () => {
     if (!projectCode.trim()) { message.warning('請輸入案件工號'); return }
+    if (!changeSummary.trim()) { message.warning('請填寫修改摘要後再儲存'); return }
     if (totalSelected === 0) { message.warning('請至少選擇一個廠牌'); return }
 
     const combinedSelections: Record<string, Record<string, string[]>> = {}
