@@ -3,3 +3,9 @@ dist/
 .env
 .dev.vars
 *.local
+local-analyzer/.env
+local-analyzer/.venv/
+local-analyzer/data/
+local-analyzer/__pycache__/
+local-analyzer/em_analyzer/__pycache__/
+local-analyzer/tests/__pycache__/

@@ -126,6 +126,28 @@ export interface ComplianceCase {
   id: string
   caseName: string
   status: string
+  highestRisk: string
+  systems: string[]
+  fileCount: number
+  createdTime: string
+  lastEditedTime: string
+}
+
+export interface ComplianceRequirement {
+  id: string
+  title: string
+  fileName: string
+  location: string
+  sourceText: string
+  conditionType: string
+  matchedText: string
+  standardRef: string
+  risk: string
+  reason: string
+  suggestion: string
+  status: string
+  marketCheck: boolean
+  humanCheck: boolean
 }
 
 export interface PriceTrend {

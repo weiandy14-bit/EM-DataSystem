@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, Button, Card, Col, Divider, Form, Input,
-  Row, Select, Space, Tag, Typography, Upload, message,
+  Alert, Button, Card, Col, Collapse, Divider, Empty, Form, Input,
+  List, Row, Select, Space, Spin, Tag, Typography, Upload, message,
 } from 'antd'
 import {
-  CheckCircleOutlined, FileTextOutlined, InboxOutlined,
-  SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
+  CheckCircleOutlined, ClockCircleOutlined, FileTextOutlined, InboxOutlined,
+  ReloadOutlined, SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
-import type { ComplianceCandidateProduct, ComplianceCase, ProjectWithStats } from '../types'
+import type {
+  ComplianceCandidateProduct, ComplianceCase, ComplianceRequirement, ProjectWithStats,
+} from '../types'
 
 const { Title, Paragraph, Text } = Typography
 const { Dragger } = Upload
@@ -40,6 +42,26 @@ type FormValues = {
 const emptyCandidates = (): ComplianceCandidateProduct[] =>
   Array.from({ length: 3 }, () => ({ brand: '', series: '', model: '' }))
 
+const statusColor: Record<string, string> = {
+  '待分析': 'default',
+  '分析中': 'processing',
+  '待覆核': 'warning',
+  '已完成': 'success',
+}
+
+const riskColor: Record<string, string> = {
+  '未判定': 'default',
+  '低': 'green',
+  '中': 'gold',
+  '高': 'orange',
+  '重大': 'red',
+  '通過': 'green',
+  '注意': 'gold',
+  '高風險': 'orange',
+  '不符合': 'red',
+  '無法判定': 'purple',
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -60,6 +82,21 @@ export default function ComplianceChecker() {
   const [candidates, setCandidates] = useState<ComplianceCandidateProduct[]>(emptyCandidates)
   const [saving, setSaving] = useState(false)
   const [createdCase, setCreatedCase] = useState<ComplianceCase | null>(null)
+  const [cases, setCases] = useState<ComplianceCase[]>([])
+  const [casesLoading, setCasesLoading] = useState(true)
+  const [requirements, setRequirements] = useState<Record<string, ComplianceRequirement[]>>({})
+  const [requirementsLoading, setRequirementsLoading] = useState<string | null>(null)
+
+  const loadCases = useCallback(async (quiet = false) => {
+    if (!quiet) setCasesLoading(true)
+    try {
+      setCases(await api.complianceCases.list())
+    } catch (error) {
+      if (!quiet) message.error(error instanceof Error ? error.message : '案件資料載入失敗')
+    } finally {
+      if (!quiet) setCasesLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     api.projects.list()
@@ -67,6 +104,27 @@ export default function ComplianceChecker() {
       .catch(error => message.error(error instanceof Error ? error.message : '工程資料載入失敗'))
       .finally(() => setProjectsLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadCases()
+    const timer = window.setInterval(() => loadCases(true), 15000)
+    return () => window.clearInterval(timer)
+  }, [loadCases])
+
+  const loadRequirements = async (caseId: string) => {
+    setRequirementsLoading(caseId)
+    try {
+      const items = await api.complianceCases.requirements(caseId)
+      setRequirements(current => ({
+        ...current,
+        [caseId]: items,
+      }))
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '分析結果載入失敗')
+    } finally {
+      setRequirementsLoading(null)
+    }
+  }
 
   const updateCandidate = (index: number, field: keyof ComplianceCandidateProduct, value: string) => {
     setCandidates(current => current.map((candidate, candidateIndex) =>
@@ -120,6 +178,7 @@ export default function ComplianceChecker() {
       form.resetFields()
       setSourceFiles([])
       setCandidates(emptyCandidates())
+      await loadCases(true)
       message.success('規範檢查案件已建立')
     } catch (error) {
       message.error(error instanceof Error ? error.message : '案件建立失敗')
@@ -169,6 +228,45 @@ export default function ComplianceChecker() {
             </Col>
           ))}
         </Row>
+
+        <Card
+          title={<Space><ClockCircleOutlined />本機分析案件</Space>}
+          extra={<Button icon={<ReloadOutlined />} onClick={() => loadCases()} loading={casesLoading}>重新整理</Button>}
+          style={{ borderRadius: 12 }}
+        >
+          <Alert
+            type="info"
+            showIcon
+            message="網頁負責案件操作，本機分析器在背景處理"
+            description="待分析案件會由已啟動的本機分析器自動領取；本頁每15秒更新進度。電腦未啟動分析器時，案件會安全保留在待分析。"
+            style={{ marginBottom: 16 }}
+          />
+          <Spin spinning={casesLoading}>
+            {cases.length === 0 ? <Empty description="尚無規範檢查案件" /> : (
+              <Collapse
+                accordion
+                onChange={key => {
+                  const caseId = Array.isArray(key) ? key[0] : key
+                  if (caseId) loadRequirements(String(caseId))
+                }}
+                items={cases.map(item => ({
+                  key: item.id,
+                  label: (
+                    <Space wrap>
+                      <Text strong>{item.caseName}</Text>
+                      <Tag color={statusColor[item.status] ?? 'default'}>{item.status || '未設定'}</Tag>
+                      <Tag color={riskColor[item.highestRisk] ?? 'default'}>風險：{item.highestRisk || '未判定'}</Tag>
+                      <Text type="secondary">{item.fileCount} 份文件</Text>
+                    </Space>
+                  ),
+                  children: requirementsLoading === item.id ? <Spin /> : (
+                    <RequirementList items={requirements[item.id] ?? []} status={item.status} />
+                  ),
+                }))}
+              />
+            )}
+          </Spin>
+        </Card>
 
         <Card title={<Space><SafetyCertificateOutlined />建立檢查案件</Space>} style={{ borderRadius: 12 }}>
           <Form form={form} layout="vertical" onFinish={handleSubmit} requiredMark="optional">
@@ -281,5 +379,44 @@ export default function ComplianceChecker() {
         </Card>
       </Space>
     </div>
+  )
+}
+
+function RequirementList({ items, status }: { items: ComplianceRequirement[]; status: string }) {
+  if (items.length === 0) {
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={status === '待分析' ? '等待本機分析器領取' : status === '分析中' ? '正在解析文件' : '尚無可顯示的初篩結果'}
+      />
+    )
+  }
+  return (
+    <List
+      dataSource={items}
+      pagination={items.length > 10 ? { pageSize: 10, size: 'small' } : false}
+      renderItem={item => (
+        <List.Item>
+          <List.Item.Meta
+            title={(
+              <Space wrap>
+                <Text strong>{item.title}</Text>
+                <Tag>{item.conditionType}</Tag>
+                <Tag color={riskColor[item.risk] ?? 'default'}>{item.risk}</Tag>
+                {item.marketCheck && <Tag color="blue">需市場驗證</Tag>}
+              </Space>
+            )}
+            description={(
+              <Space direction="vertical" size={3} style={{ width: '100%' }}>
+                <Text type="secondary">{item.fileName}／{item.location}</Text>
+                <Text>{item.sourceText}</Text>
+                <Text><Text strong>判定理由：</Text>{item.reason}</Text>
+                <Text><Text strong>建議：</Text>{item.suggestion}</Text>
+              </Space>
+            )}
+          />
+        </List.Item>
+      )}
+    />
   )
 }
