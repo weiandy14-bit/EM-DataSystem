@@ -11,6 +11,7 @@ import { handleProjects } from './routes/projects'
 import { handleComplianceCases } from './routes/compliance-cases'
 import { handleLocalAnalyzer } from './routes/local-analyzer'
 import { syncOnlineResearch } from './online-research'
+import { syncFreeAnalysis } from './free-analysis'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -95,6 +96,9 @@ export default {
     }
   },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(syncOnlineResearch(env))
+    ctx.waitUntil((async () => {
+      await syncOnlineResearch(env)
+      await syncFreeAnalysis(env)
+    })())
   },
 }

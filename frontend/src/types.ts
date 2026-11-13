@@ -122,6 +122,24 @@ export interface ComplianceSourceFile {
   fileType: string
 }
 
+export interface FreeComplianceRequirement {
+  file: string
+  title: string
+  condition_type: string
+  matched_text: string
+  source_text: string
+  location: string
+  page: number | null
+  standard_ref: string
+  normalized_value: number | null
+  unit: string
+  risk: string
+  reason: string
+  suggestion: string
+  market_check: boolean
+  human_check: boolean
+}
+
 export interface ComplianceCase {
   id: string
   caseName: string
@@ -175,6 +193,7 @@ export interface ComplianceOnlineReport {
 export interface ComplianceResearchState {
   job: { status: string; error?: string; finalized?: boolean } | null
   report: ComplianceOnlineReport | null
+  freeJob?: { status: string; error?: string; savedCount: number; total: number } | null
 }
 
 export interface ComplianceRequirement {

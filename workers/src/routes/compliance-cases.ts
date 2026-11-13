@@ -5,8 +5,10 @@ import {
   pageToComplianceCase,
   type ComplianceCandidateProduct,
   type Env,
+  type LocalAnalyzerRequirement,
 } from '../notion'
 import { getOnlineResearch, startOnlineResearch, syncOnlineResearch } from '../online-research'
+import { getFreeAnalysis, queueFreeAnalysis, syncFreeAnalysis } from '../free-analysis'
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024
@@ -25,6 +27,8 @@ type CreateComplianceCaseBody = {
   candidates?: ComplianceCandidateProduct[]
   notes?: string
   files?: Array<{ fileBase64: string; fileName: string; fileType: string }>
+  analysisMode?: 'rules' | 'ai'
+  freeRequirements?: LocalAnalyzerRequirement[]
 }
 
 export async function handleComplianceCases(
@@ -38,13 +42,19 @@ export async function handleComplianceCases(
 
   if (req.method === 'GET') {
     const reportMatch = subpath.match(/^\/([^/]+)\/report$/)
-    if (reportMatch) return json(await getOnlineResearch(env, reportMatch[1]))
+    if (reportMatch) {
+      const online = await getOnlineResearch(env, reportMatch[1])
+      const freeJob = await getFreeAnalysis(env, reportMatch[1])
+      return json({ ...online, freeJob })
+    }
     const match = subpath.match(/^\/([^/]+)\/requirements$/)
     if (match) return json(await listSpecificationRequirements(env, match[1]))
   }
 
   if (req.method === 'POST' && subpath === '/sync') {
-    return json(await syncOnlineResearch(env))
+    const online = await syncOnlineResearch(env)
+    const free = await syncFreeAnalysis(env)
+    return json([...online, ...free])
   }
 
   if (req.method !== 'POST' || (subpath !== '/' && subpath !== '')) {
@@ -88,7 +98,8 @@ export async function handleComplianceCases(
     }))
     .filter(candidate => candidate.brand)
     .slice(0, 3)
-  if (candidates.length !== 3) {
+  const analysisMode = body.analysisMode === 'rules' ? 'rules' : 'ai'
+  if (analysisMode === 'ai' && candidates.length !== 3) {
     return json({ error: '線上比較必須填寫三家候選產品的廠牌' }, 400)
   }
 
@@ -109,6 +120,11 @@ export async function handleComplianceCases(
     throw error
   }
   const createdCase = pageToComplianceCase(page)
+  if (analysisMode === 'rules') {
+    const requirements = sanitizeFreeRequirements(body.freeRequirements ?? [])
+    await queueFreeAnalysis(env, page.id, [...new Set(body.systems ?? [])].filter(system => ALLOWED_SYSTEMS.has(system)), requirements)
+    return json({ ...createdCase, status: '分析中' }, 201)
+  }
   try {
     await startOnlineResearch(env, {
       caseId: page.id,
@@ -126,6 +142,29 @@ export async function handleComplianceCases(
       analysisError: error instanceof Error ? error.message : '線上分析啟動失敗',
     }, 201)
   }
+}
+
+function sanitizeFreeRequirements(requirements: LocalAnalyzerRequirement[]) {
+  const allowedTypes = new Set(['尺寸公差', '壓力溫度', '容量點數迴路', '百分比倍率', '持續時間', '材質構造', '性能效率', '型式代號', '介面通訊', '標準認證', '品牌產地', '施工試驗', '其他'])
+  const allowedRisks = new Set(['通過', '注意', '高風險', '不符合', '無法判定'])
+  return requirements.slice(0, 100).map(item => ({
+    ...item,
+    file: String(item.file ?? '').slice(0, 300),
+    title: String(item.title ?? '').slice(0, 500),
+    condition_type: allowedTypes.has(item.condition_type) ? item.condition_type : '其他',
+    matched_text: String(item.matched_text ?? '').slice(0, 500),
+    source_text: String(item.source_text ?? '').slice(0, 4000),
+    location: String(item.location ?? '').slice(0, 300),
+    standard_ref: String(item.standard_ref ?? '').slice(0, 300),
+    unit: String(item.unit ?? '').slice(0, 100),
+    risk: allowedRisks.has(item.risk) ? item.risk : '注意',
+    reason: String(item.reason ?? '').slice(0, 4000),
+    suggestion: String(item.suggestion ?? '').slice(0, 4000),
+    page: Number.isFinite(item.page) ? item.page : null,
+    normalized_value: Number.isFinite(item.normalized_value) ? item.normalized_value : null,
+    market_check: Boolean(item.market_check),
+    human_check: Boolean(item.human_check),
+  }))
 }
 
 function json(data: unknown, status = 200): Response {
