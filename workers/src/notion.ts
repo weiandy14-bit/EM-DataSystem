@@ -8,6 +8,9 @@ export interface Env {
   NOTION_DB_BRAND_MASTER: string
   NOTION_DB_BRAND_REPORTS: string
   NOTION_DB_PROJECTS: string
+  NOTION_DB_COMPLIANCE_CASES: string
+  NOTION_DB_COMPLIANCE_FINDINGS: string
+  NOTION_DB_COMPLIANCE_EVIDENCE: string
   AUTH_KV: KVNamespace
 }
 
@@ -361,6 +364,104 @@ async function uploadWordFileToNotion(env: Env, fileBase64: string, fileName: st
   } catch (e) {
     console.error('uploadWordFileToNotion error:', e)
     return null
+  }
+}
+
+async function uploadComplianceFileToNotion(
+  env: Env,
+  fileBase64: string,
+  fileName: string,
+  contentType: string,
+): Promise<string> {
+  const createRes = await fetch('https://api.notion.com/v1/file-uploads', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+      'Notion-Version': NOTION_VERSION,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content_type: contentType, filename: fileName, mode: 'single_part' }),
+  })
+  if (!createRes.ok) {
+    throw new Error(`Notion file upload create failed: ${await createRes.text()}`)
+  }
+
+  const uploadInfo = await createRes.json() as { id: string }
+  const bytes = Uint8Array.from(atob(fileBase64), (c: string) => c.charCodeAt(0))
+  const form = new FormData()
+  form.append('file', new Blob([bytes], { type: contentType }), fileName)
+
+  const sendRes = await fetch(`https://api.notion.com/v1/file-uploads/${uploadInfo.id}/send`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.NOTION_TOKEN}`,
+      'Notion-Version': NOTION_VERSION,
+    },
+    body: form,
+  })
+  if (!sendRes.ok) {
+    throw new Error(`Notion file upload send failed: ${await sendRes.text()}`)
+  }
+  return uploadInfo.id
+}
+
+export type ComplianceCandidateProduct = {
+  brand: string
+  series?: string
+  model?: string
+}
+
+export type CreateComplianceCaseData = {
+  caseName: string
+  projectId?: string
+  designPressure?: number
+  testPressure?: number
+  temperature?: number
+  fluid?: string
+  pipeRange?: string
+  candidates: ComplianceCandidateProduct[]
+  notes?: string
+  fileBase64: string
+  fileName: string
+  fileType: string
+}
+
+export async function createComplianceCase(env: Env, data: CreateComplianceCaseData) {
+  const fileUploadId = await uploadComplianceFileToNotion(
+    env,
+    data.fileBase64,
+    data.fileName,
+    data.fileType,
+  )
+
+  const properties: Record<string, unknown> = {
+    '案件名稱': { title: [{ text: { content: data.caseName } }] },
+    '狀態': { status: { name: '待分析' } },
+    '最高風險': { select: { name: '未判定' } },
+    '流體': { rich_text: toRichTextChunks(data.fluid ?? '') },
+    '管徑範圍': { rich_text: toRichTextChunks(data.pipeRange ?? '') },
+    '候選產品資料': { rich_text: toRichTextChunks(JSON.stringify(data.candidates)) },
+    '備註': { rich_text: toRichTextChunks(data.notes ?? '') },
+    '原始規範': { files: [{ type: 'file_upload', file_upload: { id: fileUploadId } }] },
+  }
+
+  if (data.projectId) properties['工程'] = { relation: [{ id: data.projectId }] }
+  if (data.designPressure !== undefined) properties['設計壓力 MPa'] = { number: data.designPressure }
+  if (data.testPressure !== undefined) properties['試驗壓力 MPa'] = { number: data.testPressure }
+  if (data.temperature !== undefined) properties['使用溫度 ℃'] = { number: data.temperature }
+
+  return notionRequest(env, 'POST', '/pages', {
+    parent: { database_id: env.NOTION_DB_COMPLIANCE_CASES },
+    properties,
+  })
+}
+
+export function pageToComplianceCase(page: any) {
+  const p = page.properties
+  return {
+    id: page.id,
+    caseName: getText(p['案件名稱']),
+    status: p['狀態']?.status?.name ?? '',
   }
 }
 

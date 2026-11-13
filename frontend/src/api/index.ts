@@ -2,6 +2,7 @@ import type {
   Equipment, Material, Specification, PricingRecord,
   InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
   BrandMaster, BrandReport, Project, ProjectWithStats,
+  ComplianceCandidateProduct, ComplianceCase,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -251,6 +252,23 @@ export const api = {
       post<Project>('/projects', data),
     delete: (id: string, cascade: boolean): Promise<void> =>
       del(`/projects/${id}${cascade ? '?cascade=true' : ''}`),
+  },
+
+  complianceCases: {
+    create: (data: {
+      caseName: string
+      projectId?: string
+      designPressure?: number
+      testPressure?: number
+      temperature?: number
+      fluid?: string
+      pipeRange?: string
+      candidates: ComplianceCandidateProduct[]
+      notes?: string
+      fileBase64: string
+      fileName: string
+      fileType: string
+    }): Promise<ComplianceCase> => post<ComplianceCase>('/compliance-cases', data),
   },
 
   inspection: {
