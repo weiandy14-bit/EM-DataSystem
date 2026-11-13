@@ -240,7 +240,7 @@ export default function ComplianceChecker() {
             description={createdCase.analysisError
               ? `文件已保存至 Notion，但線上分析未啟動：${createdCase.analysisError}`
               : createdMode === 'rules'
-                ? '文件已保存至 Notion，免費規則引擎正在擷取 CNS、標準、尺寸、容量及性能條件，不會使用 OpenAI 額度。'
+                ? '文件已保存至 Notion，免費規則引擎正在擷取條件，並以標檢局官方資料查核 CNS 有效、廢止及取代狀態；不會使用 OpenAI 額度。'
                 : '文件已保存至 Notion，AI 正在擷取規範條件並查證三家產品資料。'}
             closable
             onClose={() => setCreatedCase(null)}
@@ -249,7 +249,7 @@ export default function ComplianceChecker() {
 
         <Row gutter={[12, 12]}>
           {[
-            { icon: <SearchOutlined />, title: 'CNS引用擷取', text: '逐筆列出CNS引用，待官方主檔確認有效、廢止及取代', color: '#1F4E79' },
+            { icon: <SearchOutlined />, title: 'CNS官方查核', text: '以標檢局開放資料逐筆判斷有效、廢止及取代鏈', color: '#1F4E79' },
             { icon: <FileTextOutlined />, title: '法規引用', text: '法規名稱、條號與引用內容是否一致', color: '#1A7A4A' },
             { icon: <ToolOutlined />, title: '限制條件', text: '尺寸、容量、性能、型式與條件組合的實質影響', color: '#AD6800' },
           ].map(item => (
@@ -408,7 +408,7 @@ export default function ComplianceChecker() {
                 <Card size="small" style={{ height: '100%', borderColor: '#52C41A' }}>
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <Text strong>免費規則檢核</Text>
-                    <Text type="secondary">擷取 CNS、標準、尺寸、容量、百分比、時間、壓力、溫度與疑似限制文字；不搜尋三家網路證據。</Text>
+                    <Text type="secondary">擷取 CNS、標準、尺寸、容量、百分比、時間、壓力、溫度與疑似限制文字；CNS 會使用標檢局官方資料查核，不搜尋三家產品證據。</Text>
                     <Button
                       icon={<ExperimentOutlined />}
                       loading={submittingMode === 'rules'}
@@ -503,7 +503,7 @@ function OnlineReportView({ state, status }: { state?: ComplianceResearchState; 
     return <Alert type="error" showIcon message="線上分析未完成" description={state.job.error} />
   }
   if (state?.freeJob && state.freeJob.status !== 'completed') {
-    return <Alert type="info" showIcon message="免費規則檢核進行中" description={`已保存 ${state.freeJob.savedCount}／${state.freeJob.total} 項條件，系統會分批寫入 Notion。`} />
+    return <Alert type="info" showIcon message="免費規則檢核進行中" description={`已保存 ${state.freeJob.savedCount}／${state.freeJob.total} 項條件；CNS 官方查核 ${state.freeJob.cnsCheckedCount ?? 0}／${state.freeJob.cnsTotal ?? 0}。`} />
   }
   if (!state?.report) {
     if (state?.job && status === '分析中') return <Alert type="info" showIcon message="AI 深度查證進行中" description="系統正在閱讀文件、搜尋原廠資料並核對三家產品，完成後會自動顯示結果。" />

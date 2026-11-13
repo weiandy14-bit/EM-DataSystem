@@ -609,6 +609,128 @@ export type LocalAnalyzerRequirement = {
   human_check: boolean
 }
 
+export type CnsOfficialRecord = {
+  number: string
+  categoryNumber: string
+  name: string
+  publishedDate: string
+  revisedDate: string
+  withdrawnDate: string
+  internationalOrganization: string
+  internationalNumber: string
+  internationalYear: string
+  replacements: string[]
+}
+
+export async function upsertCnsStandard(env: Env, record: CnsOfficialRecord, officialUrl: string) {
+  const existing = await queryDatabase(env, env.NOTION_DB_CNS_STANDARDS, {
+    property: 'CNS總號', rich_text: { equals: record.number },
+  })
+  const currentStatus = record.withdrawnDate
+    ? record.replacements.length ? '已廢止有取代' : '已廢止無取代'
+    : '最新有效'
+  const international = [record.internationalOrganization, record.internationalNumber, record.internationalYear]
+    .filter(Boolean).join(' ')
+  const properties: Record<string, unknown> = {
+    'CNS標準': { title: [{ text: { content: `CNS ${record.number}` } }] },
+    'CNS總號': { rich_text: toRichTextChunks(record.number) },
+    '類號': { rich_text: toRichTextChunks(record.categoryNumber) },
+    '中文名稱': { rich_text: toRichTextChunks(record.name) },
+    '目前狀態': { select: { name: currentStatus } },
+    '官方來源': { url: officialUrl },
+    '最後查核時間': { date: { start: new Date().toISOString() } },
+    '確認日期': { date: { start: new Date().toISOString().slice(0, 10) } },
+    '最新版資訊': { rich_text: toRichTextChunks(international ? `對應 ${international}` : '官方資料未列對應國際標準') },
+    '查核摘要': { rich_text: toRichTextChunks(record.withdrawnDate
+      ? `已於 ${record.withdrawnDate} 廢止${record.replacements.length ? `，被 CNS ${record.replacements.join('、CNS ')} 取代` : ''}`
+      : '官方資料未列廢止日期') },
+  }
+  if (record.publishedDate) properties['制定日期'] = { date: { start: record.publishedDate } }
+  if (record.revisedDate) properties['修訂日期'] = { date: { start: record.revisedDate } }
+  if (record.withdrawnDate) properties['廢止日期'] = { date: { start: record.withdrawnDate } }
+  if (existing[0]) {
+    await notionRequest(env, 'PATCH', `/pages/${existing[0].id}`, { properties })
+    return existing[0].id as string
+  }
+  const page = await notionRequest(env, 'POST', '/pages', {
+    parent: { database_id: env.NOTION_DB_CNS_STANDARDS }, properties,
+  })
+  return page.id as string
+}
+
+export async function upsertCnsReplacement(env: Env, data: {
+  fromId: string
+  toId: string
+  fromNumber: string
+  toNumber: string
+  effectiveDate: string
+  officialUrl: string
+}) {
+  const title = `CNS ${data.fromNumber} → CNS ${data.toNumber}`
+  const existing = await queryDatabase(env, env.NOTION_DB_CNS_REPLACEMENTS, {
+    property: '取代關係', title: { equals: title },
+  })
+  const properties: Record<string, unknown> = {
+    '取代關係': { title: [{ text: { content: title } }] },
+    '原CNS': { relation: [{ id: data.fromId }] },
+    '取代CNS': { relation: [{ id: data.toId }] },
+    '關係類型': { select: { name: '直接取代' } },
+    '官方證據': { url: data.officialUrl },
+    '證據摘要': { rich_text: toRichTextChunks(`標檢局開放資料記載 CNS ${data.fromNumber} 被 CNS ${data.toNumber} 取代`) },
+    '人工確認': { checkbox: false },
+  }
+  if (data.effectiveDate) properties['生效日期'] = { date: { start: data.effectiveDate } }
+  if (existing[0]) return notionRequest(env, 'PATCH', `/pages/${existing[0].id}`, { properties })
+  return notionRequest(env, 'POST', '/pages', {
+    parent: { database_id: env.NOTION_DB_CNS_REPLACEMENTS }, properties,
+  })
+}
+
+export async function resolveCnsCheck(env: Env, caseId: string, reference: string, data: {
+  result: string
+  officialStatus: string
+  replacementChain: string
+  suggestion: string
+  officialUrl: string
+  completed: boolean
+  humanCheck: boolean
+  risk: string
+  standardId?: string
+}) {
+  const checks = await queryDatabase(env, env.NOTION_DB_CNS_CHECKS, {
+    and: [
+      { property: '檢查案件', relation: { contains: caseId } },
+      { property: '正規化引用', rich_text: { equals: reference } },
+      { property: '查核結果', select: { equals: '待查核' } },
+    ],
+  })
+  for (const check of checks.slice(0, 10)) {
+    const properties: Record<string, unknown> = {
+      '查核結果': { select: { name: data.result } },
+      '官方當時狀態': { rich_text: toRichTextChunks(data.officialStatus) },
+      '取代鏈': { rich_text: toRichTextChunks(data.replacementChain) },
+      '問題與處理建議': { rich_text: toRichTextChunks(data.suggestion) },
+      '官方來源': { url: data.officialUrl },
+      '查核時間': { date: { start: new Date().toISOString() } },
+      '查核完成': { checkbox: data.completed },
+      '需人工確認': { checkbox: data.humanCheck },
+    }
+    if (data.standardId) properties['CNS標準'] = { relation: [{ id: data.standardId }] }
+    await notionRequest(env, 'PATCH', `/pages/${check.id}`, { properties })
+
+    const requirementId = getRelationId(check.properties['規範條件'])
+    if (requirementId) {
+      await notionRequest(env, 'PATCH', `/pages/${requirementId}`, { properties: {
+        '風險等級': { select: { name: data.risk } },
+        '判定理由': { rich_text: toRichTextChunks(data.officialStatus) },
+        '建議中性文字': { rich_text: toRichTextChunks(data.suggestion) },
+        '需人工確認': { checkbox: data.humanCheck },
+      } })
+    }
+  }
+  return { hasMore: checks.length > 10 }
+}
+
 export async function saveAnalyzerResults(
   env: Env,
   caseId: string,

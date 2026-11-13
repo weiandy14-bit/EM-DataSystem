@@ -193,7 +193,7 @@ export interface ComplianceOnlineReport {
 export interface ComplianceResearchState {
   job: { status: string; error?: string; finalized?: boolean } | null
   report: ComplianceOnlineReport | null
-  freeJob?: { status: string; error?: string; savedCount: number; total: number } | null
+  freeJob?: { status: string; error?: string; savedCount: number; total: number; cnsCheckedCount?: number; cnsTotal?: number } | null
 }
 
 export interface ComplianceRequirement {
