@@ -22,19 +22,22 @@ def load_dotenv(path: Path) -> None:
 @dataclass(frozen=True)
 class Config:
     api_base: str
-    analyzer_token: str
+    username: str
+    password: str
     data_dir: Path
     poll_seconds: int
 
     @classmethod
     def from_env(cls) -> "Config":
         load_dotenv(ROOT / ".env")
-        token = os.getenv("LOCAL_ANALYZER_TOKEN", "").strip()
-        if not token or token.startswith("請貼上"):
-            raise ValueError("尚未設定 LOCAL_ANALYZER_TOKEN，請先執行「設定本機分析器.bat」。")
+        username = os.getenv("EM_USERNAME", "").strip()
+        password = os.getenv("EM_PASSWORD", "").strip()
+        if not username or username.startswith("請填入") or not password or password.startswith("請填入"):
+            raise ValueError("尚未設定系統登入帳號與密碼，請先執行「設定本機分析器.bat」。")
         return cls(
             api_base=os.getenv("API_BASE", "https://em-datasystem-api.weiandy14.workers.dev/api").rstrip("/"),
-            analyzer_token=token,
+            username=username,
+            password=password,
             data_dir=ROOT / "data",
             poll_seconds=max(15, int(os.getenv("POLL_SECONDS", "60"))),
         )

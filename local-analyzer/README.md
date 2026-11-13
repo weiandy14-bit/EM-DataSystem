@@ -4,8 +4,8 @@
 
 ## 第一次使用
 
-1. 由系統管理者在 Cloudflare Worker 設定 `LOCAL_ANALYZER_TOKEN` Secret。
-2. 雙擊 `設定本機分析器.bat`，將相同連線金鑰貼入 `LOCAL_ANALYZER_TOKEN=` 後方並儲存。
+1. 在 EM-DataSystem 的帳號管理中建立一個一般使用者帳號，例如「本機分析器」。
+2. 雙擊 `設定本機分析器.bat`，填入該帳號與密碼後儲存。不需要 Notion Integration 或 Cloudflare Secret。
 3. 雙擊 `啟動本機分析器.bat`。第一次啟動會自動建立獨立環境並安裝 PDF 解析套件。
 
 分析器執行期間會每 60 秒檢查一次。視窗關閉後即停止，不影響系統中尚未處理的案件。登入後的「規範合規檢查」頁面可查看案件狀態與初篩結果。

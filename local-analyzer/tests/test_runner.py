@@ -44,7 +44,8 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Config(
                 api_base="https://example.test/api",
-                analyzer_token="test-token",
+                username="analyzer",
+                password="test-password",
                 data_dir=Path(temp_dir),
                 poll_seconds=60,
             )
