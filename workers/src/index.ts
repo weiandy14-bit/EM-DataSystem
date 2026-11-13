@@ -9,10 +9,11 @@ import { handleBrands } from './routes/brands'
 import { handleBrandReports } from './routes/brand-reports'
 import { handleProjects } from './routes/projects'
 import { handleComplianceCases } from './routes/compliance-cases'
+import { handleLocalAnalyzer } from './routes/local-analyzer'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
@@ -34,7 +35,10 @@ export default {
     try {
       let res: Response
 
-      if (path.startsWith('/api/auth')) {
+      if (path.startsWith('/api/local-analyzer')) {
+        const subpath = path.replace('/api/local-analyzer', '') || '/'
+        res = await handleLocalAnalyzer(req, env, subpath)
+      } else if (path.startsWith('/api/auth')) {
         const subpath = path.replace('/api/auth', '') || '/'
         res = await handleAuth(req, env, subpath)
       } else if (path.startsWith('/api/users')) {

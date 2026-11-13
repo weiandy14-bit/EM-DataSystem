@@ -1,5 +1,7 @@
 import {
   createComplianceCase,
+  listComplianceCases,
+  listSpecificationRequirements,
   pageToComplianceCase,
   type ComplianceCandidateProduct,
   type Env,
@@ -29,6 +31,15 @@ export async function handleComplianceCases(
   env: Env,
   subpath: string,
 ): Promise<Response> {
+  if (req.method === 'GET' && (subpath === '/' || subpath === '')) {
+    return json(await listComplianceCases(env))
+  }
+
+  if (req.method === 'GET') {
+    const match = subpath.match(/^\/([^/]+)\/requirements$/)
+    if (match) return json(await listSpecificationRequirements(env, match[1]))
+  }
+
   if (req.method !== 'POST' || (subpath !== '/' && subpath !== '')) {
     return json({ error: 'Method not allowed' }, 405)
   }

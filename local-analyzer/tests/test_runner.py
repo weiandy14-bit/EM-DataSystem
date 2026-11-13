@@ -4,7 +4,7 @@ import zipfile
 from pathlib import Path
 
 from em_analyzer.config import Config
-from em_analyzer.notion import CaseFile, ComplianceCase
+from em_analyzer.api import CaseFile, ComplianceCase
 from em_analyzer.runner import AnalyzerRunner
 
 
@@ -13,7 +13,6 @@ class FakeClient:
         self.case = case
         self.statuses = []
         self.requirements = []
-        self.cns_checks = []
 
     def pending_cases(self):
         return [self.case]
@@ -29,12 +28,8 @@ class FakeClient:
         with zipfile.ZipFile(destination, "w") as archive:
             archive.writestr("word/document.xml", xml)
 
-    def upsert_requirement(self, case, file_name, requirement):
-        self.requirements.append(requirement)
-        return f"requirement-{len(self.requirements)}"
-
-    def upsert_cns_check(self, case, requirement_id, file_name, requirement):
-        self.cns_checks.append(requirement.standard_ref)
+    def save_results(self, case, requirements):
+        self.requirements.extend(requirement for _, requirement in requirements)
 
 
 class RunnerTests(unittest.TestCase):
@@ -48,10 +43,8 @@ class RunnerTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Config(
-                notion_token="test-token",
-                cases_db="cases",
-                requirements_db="requirements",
-                cns_checks_db="cns-checks",
+                api_base="https://example.test/api",
+                analyzer_token="test-token",
                 data_dir=Path(temp_dir),
                 poll_seconds=60,
             )
@@ -63,7 +56,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(failures, 0)
             self.assertEqual(client.statuses[0], ("分析中", None))
             self.assertEqual(client.statuses[-1][0], "待覆核")
-            self.assertIn("CNS 14674", client.cns_checks)
+            self.assertTrue(any(item.standard_ref == "CNS 14674" for item in client.requirements))
             self.assertTrue(list((Path(temp_dir) / "reports").glob("*.json")))
             self.assertTrue(list((Path(temp_dir) / "completed").glob("*/16266變頻器.docx")))
 

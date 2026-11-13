@@ -1,5 +1,6 @@
 export interface Env {
   NOTION_TOKEN: string
+  LOCAL_ANALYZER_TOKEN: string
   NOTION_DB_EQUIPMENT: string
   NOTION_DB_MATERIALS: string
   NOTION_DB_SPECIFICATIONS: string
@@ -467,6 +468,200 @@ export function pageToComplianceCase(page: any) {
     id: page.id,
     caseName: getText(p['案件名稱']),
     status: p['狀態']?.status?.name ?? '',
+    highestRisk: getSelect(p['最高風險']),
+    systems: p['工程系統']?.multi_select?.map((item: any) => item.name) ?? [],
+    fileCount: getNumber(p['原始文件數']),
+    createdTime: page.created_time ?? '',
+    lastEditedTime: page.last_edited_time ?? '',
+  }
+}
+
+export async function listComplianceCases(env: Env) {
+  const pages = await queryDatabase(env, env.NOTION_DB_COMPLIANCE_CASES, undefined, [
+    { timestamp: 'created_time', direction: 'descending' },
+  ])
+  return pages.map(pageToComplianceCase)
+}
+
+export function pageToSpecificationRequirement(page: any) {
+  const p = page.properties
+  return {
+    id: page.id,
+    title: getText(p['規範條件']),
+    fileName: getText(p['文件名稱']),
+    location: getText(p['段落位置']) || getText(p['章節頁碼']),
+    sourceText: getText(p['原始規範文字']),
+    conditionType: getSelect(p['條件類型']),
+    matchedText: getText(p['原始數值文字']),
+    standardRef: getText(p['標準或法規編號']),
+    risk: getSelect(p['風險等級']),
+    reason: getText(p['判定理由']),
+    suggestion: getText(p['建議中性文字']),
+    status: p['處理狀態']?.status?.name ?? '',
+    marketCheck: Boolean(p['需市場驗證']?.checkbox),
+    humanCheck: Boolean(p['需人工確認']?.checkbox),
+  }
+}
+
+export async function listSpecificationRequirements(env: Env, caseId: string) {
+  const pages = await queryDatabase(env, env.NOTION_DB_SPECIFICATION_REQUIREMENTS, {
+    property: '檢查案件',
+    relation: { contains: caseId },
+  }, [
+    { timestamp: 'created_time', direction: 'ascending' },
+  ])
+  return pages.map(pageToSpecificationRequirement)
+}
+
+export function pageToAnalyzerCase(page: any) {
+  const p = page.properties
+  let candidates: Array<{ brand: string; series?: string; model?: string }> = []
+  try { candidates = JSON.parse(getText(p['候選產品資料']) || '[]') } catch { /* ignore */ }
+  return {
+    ...pageToComplianceCase(page),
+    candidates,
+    files: (p['原始規範']?.files ?? []).flatMap((file: any) => {
+      const url = file[file.type]?.url
+      return url ? [{ name: file.name, url }] : []
+    }),
+  }
+}
+
+export async function listPendingAnalyzerCases(env: Env) {
+  const pages = await queryDatabase(env, env.NOTION_DB_COMPLIANCE_CASES, {
+    property: '狀態',
+    status: { equals: '待分析' },
+  }, [
+    { timestamp: 'created_time', direction: 'ascending' },
+  ])
+  return pages.map(pageToAnalyzerCase)
+}
+
+export async function getAnalyzerCase(env: Env, caseId: string) {
+  return pageToAnalyzerCase(await getPage(env, caseId))
+}
+
+export async function updateComplianceCaseStatus(
+  env: Env,
+  caseId: string,
+  status: string,
+  highestRisk?: string,
+) {
+  const properties: Record<string, unknown> = {
+    '狀態': { status: { name: status } },
+  }
+  if (highestRisk) properties['最高風險'] = { select: { name: highestRisk } }
+  if (status === '待覆核') properties['分析日期'] = { date: { start: new Date().toISOString() } }
+  return notionRequest(env, 'PATCH', `/pages/${caseId}`, { properties })
+}
+
+export type LocalAnalyzerRequirement = {
+  file: string
+  title: string
+  condition_type: string
+  matched_text: string
+  source_text: string
+  location: string
+  page: number | null
+  standard_ref: string
+  normalized_value: number | null
+  unit: string
+  risk: string
+  reason: string
+  suggestion: string
+  market_check: boolean
+  human_check: boolean
+}
+
+export async function saveAnalyzerResults(
+  env: Env,
+  caseId: string,
+  systems: string[],
+  requirements: LocalAnalyzerRequirement[],
+) {
+  let cnsCount = 0
+  for (const requirement of requirements) {
+    const uniqueTitle = `${requirement.file}｜${requirement.location}｜${requirement.title}`.slice(0, 180)
+    const existing = await queryDatabase(env, env.NOTION_DB_SPECIFICATION_REQUIREMENTS, {
+      and: [
+        { property: '檢查案件', relation: { contains: caseId } },
+        { property: '規範條件', title: { equals: uniqueTitle } },
+      ],
+    })
+    const properties: Record<string, unknown> = {
+      '規範條件': { title: [{ text: { content: uniqueTitle } }] },
+      '檢查案件': { relation: [{ id: caseId }] },
+      '文件名稱': { rich_text: toRichTextChunks(requirement.file) },
+      '原始規範文字': { rich_text: toRichTextChunks(requirement.source_text) },
+      '章節頁碼': { rich_text: toRichTextChunks(requirement.page ? `第 ${requirement.page} 頁` : requirement.location) },
+      '段落位置': { rich_text: toRichTextChunks(requirement.location) },
+      '條件類型': { select: { name: requirement.condition_type } },
+      '原始數值文字': { rich_text: toRichTextChunks(requirement.matched_text) },
+      '單位': { rich_text: toRichTextChunks(requirement.unit) },
+      '標準或法規編號': { rich_text: toRichTextChunks(requirement.standard_ref) },
+      '工程系統': { multi_select: systems.map(name => ({ name })) },
+      '需市場驗證': { checkbox: requirement.market_check },
+      '需人工確認': { checkbox: requirement.human_check },
+      '風險等級': { select: { name: requirement.risk } },
+      '判定理由': { rich_text: toRichTextChunks(requirement.reason) },
+      '建議中性文字': { rich_text: toRichTextChunks(requirement.suggestion) },
+      '處理狀態': { status: { name: '待覆核' } },
+    }
+    if (requirement.normalized_value !== null) {
+      properties['標準化數值'] = { number: requirement.normalized_value }
+    }
+    let requirementId: string
+    if (existing[0]) {
+      await notionRequest(env, 'PATCH', `/pages/${existing[0].id}`, { properties })
+      requirementId = existing[0].id
+    } else {
+      const page = await notionRequest(env, 'POST', '/pages', {
+        parent: { database_id: env.NOTION_DB_SPECIFICATION_REQUIREMENTS },
+        properties,
+      })
+      requirementId = page.id
+    }
+
+    if (requirement.standard_ref.startsWith('CNS')) {
+      cnsCount++
+      await upsertPendingCnsCheck(env, caseId, requirementId, requirement)
+    }
+  }
+  return { requirements: requirements.length, cnsReferences: cnsCount }
+}
+
+async function upsertPendingCnsCheck(
+  env: Env,
+  caseId: string,
+  requirementId: string,
+  requirement: LocalAnalyzerRequirement,
+) {
+  const uniqueTitle = `${requirement.file}｜${requirement.location}｜${requirement.standard_ref}`.slice(0, 180)
+  const existing = await queryDatabase(env, env.NOTION_DB_CNS_CHECKS, {
+    and: [
+      { property: '檢查案件', relation: { contains: caseId } },
+      { property: 'CNS查核紀錄', title: { equals: uniqueTitle } },
+    ],
+  })
+  const properties = {
+    'CNS查核紀錄': { title: [{ text: { content: uniqueTitle } }] },
+    '檢查案件': { relation: [{ id: caseId }] },
+    '規範條件': { relation: [{ id: requirementId }] },
+    '文件原始引用': { rich_text: toRichTextChunks(requirement.matched_text) },
+    '正規化引用': { rich_text: toRichTextChunks(requirement.standard_ref) },
+    '查核結果': { select: { name: '待查核' } },
+    '官方當時狀態': { rich_text: toRichTextChunks('本機已擷取引用，尚未完成官方來源查核') },
+    '問題與處理建議': { rich_text: toRichTextChunks('必須查核CNS官方有效版本、廢止狀態及完整取代鏈。') },
+    '查核完成': { checkbox: false },
+    '需人工確認': { checkbox: true },
+  }
+  if (existing[0]) {
+    await notionRequest(env, 'PATCH', `/pages/${existing[0].id}`, { properties })
+  } else {
+    await notionRequest(env, 'POST', '/pages', {
+      parent: { database_id: env.NOTION_DB_CNS_CHECKS },
+      properties,
+    })
   }
 }
 

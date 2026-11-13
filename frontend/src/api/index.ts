@@ -2,7 +2,7 @@ import type {
   Equipment, Material, Specification, PricingRecord,
   InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
   BrandMaster, BrandReport, Project, ProjectWithStats,
-  ComplianceCandidateProduct, ComplianceCase, ComplianceSourceFile,
+  ComplianceCandidateProduct, ComplianceCase, ComplianceRequirement, ComplianceSourceFile,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -255,6 +255,9 @@ export const api = {
   },
 
   complianceCases: {
+    list: (): Promise<ComplianceCase[]> => get<ComplianceCase[]>('/compliance-cases'),
+    requirements: (caseId: string): Promise<ComplianceRequirement[]> =>
+      get<ComplianceRequirement[]>(`/compliance-cases/${caseId}/requirements`),
     create: (data: {
       caseName: string
       projectId?: string

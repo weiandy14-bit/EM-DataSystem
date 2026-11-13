@@ -21,6 +21,7 @@ NOTION_DB_CNS_STANDARDS = "5158c53e2c9d4decbd5f1c741b7ea557"
 NOTION_DB_CNS_REPLACEMENTS = "f3977b7606e54f20ac3d36bc10ecb9e1"
 NOTION_DB_CNS_CHECKS = "d0d45ddc735b4b7fbfda488f70094d1c"
 # NOTION_TOKEN is a Secret — set via: wrangler secret put NOTION_TOKEN
+# LOCAL_ANALYZER_TOKEN is a Secret — set via: wrangler secret put LOCAL_ANALYZER_TOKEN
 
 # KV namespace for auth (users + sessions)
 # Create with: wrangler kv:namespace create AUTH_KV

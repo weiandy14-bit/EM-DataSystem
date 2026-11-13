@@ -21,24 +21,20 @@ def load_dotenv(path: Path) -> None:
 
 @dataclass(frozen=True)
 class Config:
-    notion_token: str
-    cases_db: str
-    requirements_db: str
-    cns_checks_db: str
+    api_base: str
+    analyzer_token: str
     data_dir: Path
     poll_seconds: int
 
     @classmethod
     def from_env(cls) -> "Config":
         load_dotenv(ROOT / ".env")
-        token = os.getenv("NOTION_TOKEN", "").strip()
-        if not token or token.startswith("secret_請"):
-            raise ValueError("尚未設定 NOTION_TOKEN，請先執行「設定本機分析器.bat」。")
+        token = os.getenv("LOCAL_ANALYZER_TOKEN", "").strip()
+        if not token or token.startswith("請貼上"):
+            raise ValueError("尚未設定 LOCAL_ANALYZER_TOKEN，請先執行「設定本機分析器.bat」。")
         return cls(
-            notion_token=token,
-            cases_db=os.getenv("NOTION_DB_COMPLIANCE_CASES", "2e5d63454c0a4b759b3b0e02e1ee25a9"),
-            requirements_db=os.getenv("NOTION_DB_SPECIFICATION_REQUIREMENTS", "597d627334a6471bb72a388d2d131bf9"),
-            cns_checks_db=os.getenv("NOTION_DB_CNS_CHECKS", "d0d45ddc735b4b7fbfda488f70094d1c"),
+            api_base=os.getenv("API_BASE", "https://em-datasystem-api.weiandy14.workers.dev/api").rstrip("/"),
+            analyzer_token=token,
             data_dir=ROOT / "data",
             poll_seconds=max(15, int(os.getenv("POLL_SECONDS", "60"))),
         )

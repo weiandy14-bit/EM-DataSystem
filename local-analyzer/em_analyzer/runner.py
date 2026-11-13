@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import Config
 from .documents import extract_segments
-from .notion import ComplianceCase, NotionClient
+from .api import AnalyzerApiClient, ComplianceCase
 from .rules import Requirement, extract_requirements
 
 
@@ -17,9 +17,9 @@ CASE_RISK = {"通過": "低", "未判定": "未判定", "注意": "中", "無法
 
 
 class AnalyzerRunner:
-    def __init__(self, config: Config, client: NotionClient | None = None):
+    def __init__(self, config: Config, client: AnalyzerApiClient | None = None):
         self.config = config
-        self.client = client or NotionClient(config)
+        self.client = client or AnalyzerApiClient(config)
         for name in ("pending", "processing", "completed", "failed", "reports"):
             (config.data_dir / name).mkdir(parents=True, exist_ok=True)
 
@@ -78,10 +78,7 @@ class AnalyzerRunner:
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         self._write_markdown(report_path.with_suffix(".md"), case, requirements)
 
-        for file_name, requirement in requirements:
-            requirement_id = self.client.upsert_requirement(case, file_name, requirement)
-            if requirement.standard_ref.startswith("CNS"):
-                self.client.upsert_cns_check(case, requirement_id, file_name, requirement)
+        self.client.save_results(case, requirements)
 
         worst = max((item.risk for _, item in requirements), key=lambda value: RISK_ORDER.get(value, 0), default="未判定")
         self.client.update_case_status(case.id, "待覆核", CASE_RISK[worst])

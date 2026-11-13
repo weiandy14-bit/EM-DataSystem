@@ -1,14 +1,14 @@
 # EM-DataSystem 本機規範分析器
 
-本機分析器會從 Notion 取得狀態為「待分析」的案件，下載 DOCX／PDF 至本機，擷取 CNS、標準、尺寸、壓力、溫度、容量、百分比、時間、電氣性能、介面及排他性文字，再把條件與 CNS 待查核紀錄寫回 Notion。
+本機分析器會透過 EM-DataSystem API 取得狀態為「待分析」的案件，下載 DOCX／PDF 至本機，擷取 CNS、標準、尺寸、壓力、溫度、容量、百分比、時間、電氣性能、介面及排他性文字，再由 Cloudflare Worker 把條件與 CNS 待查核紀錄寫回 Notion。電腦不需要保存 Notion 權杖。
 
 ## 第一次使用
 
-1. 在 Notion 建立或沿用可存取「規範合規檢查系統」頁面的 Integration。
-2. 雙擊 `設定本機分析器.bat`，將 Integration 權杖貼入 `NOTION_TOKEN=` 後方並儲存。
+1. 由系統管理者在 Cloudflare Worker 設定 `LOCAL_ANALYZER_TOKEN` Secret。
+2. 雙擊 `設定本機分析器.bat`，將相同連線金鑰貼入 `LOCAL_ANALYZER_TOKEN=` 後方並儲存。
 3. 雙擊 `啟動本機分析器.bat`。第一次啟動會自動建立獨立環境並安裝 PDF 解析套件。
 
-分析器執行期間會每 60 秒檢查一次。視窗關閉後即停止，不影響 Notion 中尚未處理的案件。
+分析器執行期間會每 60 秒檢查一次。視窗關閉後即停止，不影響系統中尚未處理的案件。登入後的「規範合規檢查」頁面可查看案件狀態與初篩結果。
 
 ## 本機資料
 
