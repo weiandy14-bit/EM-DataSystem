@@ -10,6 +10,12 @@ from .config import Config
 from .rules import Requirement
 
 
+CLIENT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 EM-DataSystem-LocalAnalyzer/0.2",
+    "Accept": "application/json",
+}
+
+
 @dataclass(frozen=True)
 class CaseFile:
     name: str
@@ -39,6 +45,7 @@ class AnalyzerApiClient:
             data=data,
             method=method,
             headers={
+                **CLIENT_HEADERS,
                 "Authorization": f"Bearer {self.token}",
                 "Content-Type": "application/json",
             },
@@ -64,7 +71,7 @@ class AnalyzerApiClient:
             f"{self.config.api_base}/auth/login",
             data=data,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={**CLIENT_HEADERS, "Content-Type": "application/json"},
         )
         try:
             with urllib.request.urlopen(request, timeout=45) as response:
@@ -112,7 +119,7 @@ class AnalyzerApiClient:
             })
 
     def download(self, file: CaseFile, destination: Path) -> None:
-        request = urllib.request.Request(file.url, headers={"User-Agent": "EM-DataSystem-LocalAnalyzer/0.2"})
+        request = urllib.request.Request(file.url, headers=CLIENT_HEADERS)
         with urllib.request.urlopen(request, timeout=120) as response:
             destination.write_bytes(response.read())
 
