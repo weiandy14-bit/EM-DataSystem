@@ -1,6 +1,5 @@
 export interface Env {
   NOTION_TOKEN: string
-  LOCAL_ANALYZER_TOKEN: string
   NOTION_DB_EQUIPMENT: string
   NOTION_DB_MATERIALS: string
   NOTION_DB_SPECIFICATIONS: string

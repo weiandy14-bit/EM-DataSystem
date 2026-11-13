@@ -6,12 +6,13 @@ import {
   type Env,
   type LocalAnalyzerRequirement,
 } from '../notion'
+import { verifySession } from './auth'
 
 const ALLOWED_STATUSES = new Set(['待分析', '分析中', '待覆核'])
 const ALLOWED_RISKS = new Set(['未判定', '低', '中', '高', '重大'])
 
 export async function handleLocalAnalyzer(req: Request, env: Env, subpath: string): Promise<Response> {
-  if (!authorized(req, env)) return json({ error: 'Unauthorized local analyzer' }, 401)
+  if (!await verifySession(req, env)) return json({ error: 'Unauthorized local analyzer' }, 401)
 
   if (req.method === 'GET' && (subpath === '/' || subpath === '' || subpath === '/cases')) {
     return json(await listPendingAnalyzerCases(env))
@@ -38,11 +39,6 @@ export async function handleLocalAnalyzer(req: Request, env: Env, subpath: strin
   }
 
   return json({ error: 'Method not allowed' }, 405)
-}
-
-function authorized(req: Request, env: Env) {
-  if (!env.LOCAL_ANALYZER_TOKEN) return false
-  return req.headers.get('Authorization') === `Bearer ${env.LOCAL_ANALYZER_TOKEN}`
 }
 
 function json(data: unknown, status = 200): Response {
