@@ -9,7 +9,8 @@ import {
 } from '@ant-design/icons'
 import { api } from '../api'
 import type {
-  ComplianceCandidateProduct, ComplianceCase, ComplianceRequirement, ProjectWithStats,
+  ComplianceCandidateProduct, ComplianceCase, ComplianceOnlineReport,
+  ComplianceRequirement, ComplianceResearchState, ProjectWithStats,
 } from '../types'
 
 const { Title, Paragraph, Text } = Typography
@@ -86,10 +87,12 @@ export default function ComplianceChecker() {
   const [casesLoading, setCasesLoading] = useState(true)
   const [requirements, setRequirements] = useState<Record<string, ComplianceRequirement[]>>({})
   const [requirementsLoading, setRequirementsLoading] = useState<string | null>(null)
+  const [research, setResearch] = useState<Record<string, ComplianceResearchState>>({})
 
   const loadCases = useCallback(async (quiet = false) => {
     if (!quiet) setCasesLoading(true)
     try {
+      try { await api.complianceCases.sync() } catch { /* 清單仍應正常顯示 */ }
       setCases(await api.complianceCases.list())
     } catch (error) {
       if (!quiet) message.error(error instanceof Error ? error.message : '案件資料載入失敗')
@@ -114,11 +117,15 @@ export default function ComplianceChecker() {
   const loadRequirements = async (caseId: string) => {
     setRequirementsLoading(caseId)
     try {
-      const items = await api.complianceCases.requirements(caseId)
+      const [items, online] = await Promise.all([
+        api.complianceCases.requirements(caseId),
+        api.complianceCases.report(caseId),
+      ])
       setRequirements(current => ({
         ...current,
         [caseId]: items,
       }))
+      setResearch(current => ({ ...current, [caseId]: online }))
     } catch (error) {
       message.error(error instanceof Error ? error.message : '分析結果載入失敗')
     } finally {
@@ -161,6 +168,10 @@ export default function ComplianceChecker() {
       message.warning('請先上傳至少一份原始規範')
       return
     }
+    if (candidates.some(candidate => !candidate.brand.trim())) {
+      message.warning('請填寫三家候選產品的廠牌，才能進行線上市場比較')
+      return
+    }
 
     setSaving(true)
     try {
@@ -179,7 +190,8 @@ export default function ComplianceChecker() {
       setSourceFiles([])
       setCandidates(emptyCandidates())
       await loadCases(true)
-      message.success('規範檢查案件已建立')
+      if (result.analysisError) message.warning(`案件已保存，但線上分析未啟動：${result.analysisError}`)
+      else message.success('案件已建立，線上分析已開始')
     } catch (error) {
       message.error(error instanceof Error ? error.message : '案件建立失敗')
     } finally {
@@ -202,11 +214,13 @@ export default function ComplianceChecker() {
 
         {createdCase && (
           <Alert
-            type="success"
+            type={createdCase.analysisError ? 'warning' : 'success'}
             showIcon
             icon={<CheckCircleOutlined />}
             message={`案件「${createdCase.caseName}」已建立`}
-            description="文件與案件資料已保存至 Notion，目前狀態為待分析。"
+            description={createdCase.analysisError
+              ? `文件已保存至 Notion，但線上分析未啟動：${createdCase.analysisError}`
+              : '文件已保存至 Notion，系統正在擷取規範條件並查證三家產品資料。'}
             closable
             onClose={() => setCreatedCase(null)}
           />
@@ -230,15 +244,15 @@ export default function ComplianceChecker() {
         </Row>
 
         <Card
-          title={<Space><ClockCircleOutlined />本機分析案件</Space>}
+          title={<Space><ClockCircleOutlined />線上分析案件</Space>}
           extra={<Button icon={<ReloadOutlined />} onClick={() => loadCases()} loading={casesLoading}>重新整理</Button>}
           style={{ borderRadius: 12 }}
         >
           <Alert
             type="info"
             showIcon
-            message="網頁負責案件操作，本機分析器在背景處理"
-            description="待分析案件會由已啟動的本機分析器自動領取；本頁每15秒更新進度。電腦未啟動分析器時，案件會安全保留在待分析。"
+            message="系統會在線上讀取規範並查證三家產品"
+            description="不需啟動批次檔或本機程式。本頁每15秒更新進度；完成後會顯示逐條比較、判定理由及原廠證據連結。"
             style={{ marginBottom: 16 }}
           />
           <Spin spinning={casesLoading}>
@@ -260,7 +274,10 @@ export default function ComplianceChecker() {
                     </Space>
                   ),
                   children: requirementsLoading === item.id ? <Spin /> : (
-                    <RequirementList items={requirements[item.id] ?? []} status={item.status} />
+                    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                      <OnlineReportView state={research[item.id]} status={item.status} />
+                      <RequirementList items={requirements[item.id] ?? []} status={item.status} />
+                    </Space>
                   ),
                 }))}
               />
@@ -337,12 +354,12 @@ export default function ComplianceChecker() {
               />
             </Form.Item>
 
-            <Divider titlePlacement="left">已知候選產品（選填，最多三組）</Divider>
+            <Divider titlePlacement="left">比較產品（必填三組）</Divider>
             <Alert
               type="info"
               showIcon
-              message="請填寫廠牌、產品系列及型號"
-              description="候選產品應對應特定設備或材料；案件建立後仍可在規範條件中補充。僅填廠牌不足以判斷符合性。"
+              message="請至少填寫三家廠牌；系列與型號越完整，判斷越可靠"
+              description="系統會優先查找原廠產品頁、型錄、手冊及認證資料庫。若只找到廠牌層級資料，會標示為無法確認，不會自行推論符合。"
               style={{ marginBottom: 16 }}
             />
             {candidates.map((candidate, index) => (
@@ -368,12 +385,12 @@ export default function ComplianceChecker() {
             <Alert
               type="warning"
               showIcon
-              message="本階段建立待分析案件，不會自動作成違法結論"
+              message="線上結果是具證據的風險篩選，不會自動作成違法結論"
               description="後續結果將標示風險與證據來源，最終仍需由設計或採購專業人員覆核。"
               style={{ marginBottom: 16 }}
             />
             <Button type="primary" htmlType="submit" loading={saving} size="large">
-              建立並保存待分析案件
+              建立案件並開始線上分析
             </Button>
           </Form>
         </Card>
@@ -387,7 +404,7 @@ function RequirementList({ items, status }: { items: ComplianceRequirement[]; st
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={status === '待分析' ? '等待本機分析器領取' : status === '分析中' ? '正在解析文件' : '尚無可顯示的初篩結果'}
+        description={status === '待分析' ? '線上分析尚未啟動' : status === '分析中' ? '正在擷取條款並查證原廠資料' : '尚無可顯示的資料庫紀錄'}
       />
     )
   }
@@ -419,4 +436,81 @@ function RequirementList({ items, status }: { items: ComplianceRequirement[]; st
       )}
     />
   )
+}
+
+function OnlineReportView({ state, status }: { state?: ComplianceResearchState; status: string }) {
+  if (state?.job?.error) {
+    return <Alert type="error" showIcon message="線上分析未完成" description={state.job.error} />
+  }
+  if (!state?.report) {
+    if (status === '分析中') return <Alert type="info" showIcon message="線上分析進行中" description="系統正在閱讀文件、搜尋原廠資料並核對三家產品，完成後會自動顯示結果。" />
+    return null
+  }
+  return <OnlineReport report={state.report} />
+}
+
+function OnlineReport({ report }: { report: ComplianceOnlineReport }) {
+  return (
+    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Alert type="info" showIcon message="線上查證摘要" description={report.documentSummary} />
+      {report.clauses.map((clause, index) => (
+        <Card
+          key={clause.clauseId || index}
+          size="small"
+          title={<Space wrap><Text strong>{index + 1}. {clause.requirement}</Text><Tag>{clause.conditionType}</Tag><Tag color={riskColor[clause.risk] ?? 'default'}>{clause.risk}</Tag></Space>}
+        >
+          <Space direction="vertical" size={10} style={{ width: '100%' }}>
+            <Text type="secondary">{clause.fileName}／{clause.location}</Text>
+            <Text>{clause.originalText}</Text>
+            <Text><Text strong>綜合判定：</Text>{clause.conclusion}</Text>
+            <Tag color={clause.allThreeComply ? 'green' : 'orange'}>
+              {clause.allThreeComply ? '三家皆可符合' : '未達三家皆符合，須調整條文'}
+            </Tag>
+            <Row gutter={[10, 10]}>
+              {clause.products.map((product, productIndex) => (
+                <Col xs={24} lg={8} key={`${product.brand}-${productIndex}`}>
+                  <Card size="small" style={{ height: '100%', background: '#FAFAFA' }}>
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <Space wrap><Text strong>{product.brand}</Text><Tag color={verdictColor[product.verdict] ?? 'default'}>{product.verdict}</Tag></Space>
+                      {(product.series || product.model) && <Text type="secondary">{[product.series, product.model].filter(Boolean).join('／')}</Text>}
+                      <Text>{product.evidenceSummary}</Text>
+                      {product.evidence.map((evidence, evidenceIndex) => (
+                        <a key={`${evidence.url}-${evidenceIndex}`} href={evidence.url} target="_blank" rel="noreferrer">
+                          {evidence.title}{evidence.pageOrSection ? `（${evidence.pageOrSection}）` : ''}
+                        </a>
+                      ))}
+                      {product.evidence.length === 0 && <Text type="secondary">尚無足以判定的官方證據</Text>}
+                    </Space>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+            {!clause.allThreeComply && (
+              <Alert
+                type="warning"
+                showIcon
+                message="建議替代條文（可直接納入規範）"
+                description={(
+                  <Space direction="vertical" size={6}>
+                    <Text>{clause.neutralSuggestion}</Text>
+                    <Text type="secondary"><Text strong>調整理由：</Text>{clause.adjustmentRationale}</Text>
+                  </Space>
+                )}
+              />
+            )}
+            {clause.allThreeComply && clause.neutralSuggestion && (
+              <Text><Text strong>文字優化建議：</Text>{clause.neutralSuggestion}</Text>
+            )}
+          </Space>
+        </Card>
+      ))}
+    </Space>
+  )
+}
+
+const verdictColor: Record<string, string> = {
+  '符合': 'green',
+  '條件符合': 'gold',
+  '不符合': 'red',
+  '無法確認': 'purple',
 }

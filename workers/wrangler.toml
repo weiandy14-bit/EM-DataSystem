@@ -4,6 +4,7 @@ compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
+OPENAI_RESEARCH_MODEL = "gpt-6-astra"
 NOTION_DB_EQUIPMENT      = "3690d834d60e81cc840ed14beced0b1c"
 NOTION_DB_MATERIALS      = "3690d834d60e81bcb6bee7bea490ca2f"
 NOTION_DB_SPECIFICATIONS = "3690d834d60e8139b68dc600f5bc1653"
@@ -21,6 +22,7 @@ NOTION_DB_CNS_STANDARDS = "5158c53e2c9d4decbd5f1c741b7ea557"
 NOTION_DB_CNS_REPLACEMENTS = "f3977b7606e54f20ac3d36bc10ecb9e1"
 NOTION_DB_CNS_CHECKS = "d0d45ddc735b4b7fbfda488f70094d1c"
 # NOTION_TOKEN is a Secret — set via: wrangler secret put NOTION_TOKEN
+# OPENAI_API_KEY is a Secret — set by GitHub Actions
 
 # KV namespace for auth (users + sessions)
 # Create with: wrangler kv:namespace create AUTH_KV
@@ -28,3 +30,6 @@ NOTION_DB_CNS_CHECKS = "d0d45ddc735b4b7fbfda488f70094d1c"
 [[kv_namespaces]]
 binding = "AUTH_KV"
 id = "5d43a09ec41c4bc08c940d0964ca8759"
+
+[triggers]
+crons = ["*/5 * * * *"]

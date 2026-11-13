@@ -6,6 +6,7 @@ import {
   type ComplianceCandidateProduct,
   type Env,
 } from '../notion'
+import { getOnlineResearch, startOnlineResearch, syncOnlineResearch } from '../online-research'
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024
@@ -36,8 +37,14 @@ export async function handleComplianceCases(
   }
 
   if (req.method === 'GET') {
+    const reportMatch = subpath.match(/^\/([^/]+)\/report$/)
+    if (reportMatch) return json(await getOnlineResearch(env, reportMatch[1]))
     const match = subpath.match(/^\/([^/]+)\/requirements$/)
     if (match) return json(await listSpecificationRequirements(env, match[1]))
+  }
+
+  if (req.method === 'POST' && subpath === '/sync') {
+    return json(await syncOnlineResearch(env))
   }
 
   if (req.method !== 'POST' || (subpath !== '/' && subpath !== '')) {
@@ -81,6 +88,9 @@ export async function handleComplianceCases(
     }))
     .filter(candidate => candidate.brand)
     .slice(0, 3)
+  if (candidates.length !== 3) {
+    return json({ error: '線上比較必須填寫三家候選產品的廠牌' }, 400)
+  }
 
   let page
   try {
@@ -98,7 +108,24 @@ export async function handleComplianceCases(
     }
     throw error
   }
-  return json(pageToComplianceCase(page), 201)
+  const createdCase = pageToComplianceCase(page)
+  try {
+    await startOnlineResearch(env, {
+      caseId: page.id,
+      caseName: body.caseName.trim(),
+      systems: [...new Set(body.systems ?? [])].filter(system => ALLOWED_SYSTEMS.has(system)),
+      scopeNotes: body.scopeNotes?.trim(),
+      notes: body.notes?.trim(),
+      candidates,
+      files,
+    })
+    return json({ ...createdCase, status: '分析中' }, 201)
+  } catch (error) {
+    return json({
+      ...createdCase,
+      analysisError: error instanceof Error ? error.message : '線上分析啟動失敗',
+    }, 201)
+  }
 }
 
 function json(data: unknown, status = 200): Response {

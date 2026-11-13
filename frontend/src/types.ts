@@ -131,6 +131,50 @@ export interface ComplianceCase {
   fileCount: number
   createdTime: string
   lastEditedTime: string
+  analysisError?: string
+}
+
+export interface ComplianceEvidence {
+  title: string
+  url: string
+  sourceType: string
+  pageOrSection: string
+  retrievedAt: string
+}
+
+export interface ComplianceProductResult {
+  brand: string
+  series: string
+  model: string
+  verdict: '符合' | '條件符合' | '不符合' | '無法確認'
+  evidenceSummary: string
+  evidence: ComplianceEvidence[]
+}
+
+export interface ComplianceClauseResult {
+  clauseId: string
+  fileName: string
+  location: string
+  originalText: string
+  requirement: string
+  conditionType: string
+  standardRef: string
+  risk: string
+  allThreeComply: boolean
+  conclusion: string
+  neutralSuggestion: string
+  adjustmentRationale: string
+  products: ComplianceProductResult[]
+}
+
+export interface ComplianceOnlineReport {
+  documentSummary: string
+  clauses: ComplianceClauseResult[]
+}
+
+export interface ComplianceResearchState {
+  job: { status: string; error?: string; finalized?: boolean } | null
+  report: ComplianceOnlineReport | null
 }
 
 export interface ComplianceRequirement {
