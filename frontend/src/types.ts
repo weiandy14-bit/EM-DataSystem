@@ -116,6 +116,12 @@ export interface ComplianceCandidateProduct {
   model?: string
 }
 
+export interface ComplianceSourceFile {
+  fileBase64: string
+  fileName: string
+  fileType: string
+}
+
 export interface ComplianceCase {
   id: string
   caseName: string

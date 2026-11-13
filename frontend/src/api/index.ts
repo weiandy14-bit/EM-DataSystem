@@ -2,7 +2,7 @@ import type {
   Equipment, Material, Specification, PricingRecord,
   InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
   BrandMaster, BrandReport, Project, ProjectWithStats,
-  ComplianceCandidateProduct, ComplianceCase,
+  ComplianceCandidateProduct, ComplianceCase, ComplianceSourceFile,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -258,16 +258,11 @@ export const api = {
     create: (data: {
       caseName: string
       projectId?: string
-      designPressure?: number
-      testPressure?: number
-      temperature?: number
-      fluid?: string
-      pipeRange?: string
+      systems?: string[]
+      scopeNotes?: string
       candidates: ComplianceCandidateProduct[]
       notes?: string
-      fileBase64: string
-      fileName: string
-      fileType: string
+      files: ComplianceSourceFile[]
     }): Promise<ComplianceCase> => post<ComplianceCase>('/compliance-cases', data),
   },
 
