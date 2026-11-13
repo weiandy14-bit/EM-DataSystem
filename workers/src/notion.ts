@@ -20,6 +20,7 @@ export interface Env {
 }
 
 const NOTION_VERSION = '2022-06-28'
+const NOTION_FILE_UPLOAD_VERSION = '2026-03-11'
 
 async function notionRequest(env: Env, method: string, path: string, body?: unknown) {
   const res = await fetch(`https://api.notion.com/v1${path}`, {
@@ -329,15 +330,16 @@ function toRichTextChunks(str: string) {
 
 async function uploadWordFileToNotion(env: Env, fileBase64: string, fileName: string): Promise<string | null> {
   try {
-    const createRes = await fetch('https://api.notion.com/v1/file-uploads', {
+    const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${env.NOTION_TOKEN}`,
-        'Notion-Version': NOTION_VERSION,
+        'Notion-Version': NOTION_FILE_UPLOAD_VERSION,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename: fileName,
         mode: 'single_part',
       }),
     })
@@ -345,7 +347,7 @@ async function uploadWordFileToNotion(env: Env, fileBase64: string, fileName: st
       console.error('File upload create failed:', await createRes.text())
       return null
     }
-    const uploadInfo = await createRes.json() as { id: string }
+    const uploadInfo = await createRes.json() as { id: string; upload_url: string }
 
     const bytes = Uint8Array.from(atob(fileBase64), (c: string) => c.charCodeAt(0))
     const form = new FormData()
@@ -353,11 +355,11 @@ async function uploadWordFileToNotion(env: Env, fileBase64: string, fileName: st
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     }), fileName)
 
-    const sendRes = await fetch(`https://api.notion.com/v1/file-uploads/${uploadInfo.id}/send`, {
+    const sendRes = await fetch(uploadInfo.upload_url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${env.NOTION_TOKEN}`,
-        'Notion-Version': NOTION_VERSION,
+        'Notion-Version': NOTION_FILE_UPLOAD_VERSION,
       },
       body: form,
     })
@@ -378,11 +380,11 @@ async function uploadComplianceFileToNotion(
   fileName: string,
   contentType: string,
 ): Promise<string> {
-  const createRes = await fetch('https://api.notion.com/v1/file-uploads', {
+  const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': NOTION_VERSION,
+      'Notion-Version': NOTION_FILE_UPLOAD_VERSION,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ content_type: contentType, filename: fileName, mode: 'single_part' }),
@@ -391,16 +393,16 @@ async function uploadComplianceFileToNotion(
     throw new Error(`Notion file upload create failed: ${await createRes.text()}`)
   }
 
-  const uploadInfo = await createRes.json() as { id: string }
+  const uploadInfo = await createRes.json() as { id: string; upload_url: string }
   const bytes = Uint8Array.from(atob(fileBase64), (c: string) => c.charCodeAt(0))
   const form = new FormData()
   form.append('file', new Blob([bytes], { type: contentType }), fileName)
 
-  const sendRes = await fetch(`https://api.notion.com/v1/file-uploads/${uploadInfo.id}/send`, {
+  const sendRes = await fetch(uploadInfo.upload_url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${env.NOTION_TOKEN}`,
-      'Notion-Version': NOTION_VERSION,
+      'Notion-Version': NOTION_FILE_UPLOAD_VERSION,
     },
     body: form,
   })
