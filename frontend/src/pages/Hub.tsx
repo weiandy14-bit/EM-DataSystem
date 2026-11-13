@@ -25,12 +25,12 @@ const modules = [
   },
   {
     icon: <ToolOutlined style={{ fontSize: 36 }} />,
-    title: '規劃中',
-    desc: '功能開發中，敬請期待',
-    path: null,
-    color: '#aaa',
-    bg: '#fafafa',
-    enabled: false,
+    title: '規範合規檢查',
+    desc: '檢查 CNS 標準有效性、法規引用及疑似限制競爭文字',
+    path: '/compliance-check',
+    color: '#8B5A2B',
+    bg: '#F7EFE7',
+    enabled: true,
   },
   {
     icon: <ToolOutlined style={{ fontSize: 36 }} />,
