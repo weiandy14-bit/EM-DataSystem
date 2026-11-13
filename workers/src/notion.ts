@@ -11,6 +11,11 @@ export interface Env {
   NOTION_DB_COMPLIANCE_CASES: string
   NOTION_DB_COMPLIANCE_FINDINGS: string
   NOTION_DB_COMPLIANCE_EVIDENCE: string
+  NOTION_DB_SPECIFICATION_CHAPTERS: string
+  NOTION_DB_SPECIFICATION_REQUIREMENTS: string
+  NOTION_DB_CNS_STANDARDS: string
+  NOTION_DB_CNS_REPLACEMENTS: string
+  NOTION_DB_CNS_CHECKS: string
   AUTH_KV: KVNamespace
 }
 
@@ -414,41 +419,39 @@ export type ComplianceCandidateProduct = {
 export type CreateComplianceCaseData = {
   caseName: string
   projectId?: string
-  designPressure?: number
-  testPressure?: number
-  temperature?: number
-  fluid?: string
-  pipeRange?: string
+  systems: string[]
+  scopeNotes?: string
   candidates: ComplianceCandidateProduct[]
   notes?: string
-  fileBase64: string
-  fileName: string
-  fileType: string
+  files: Array<{ fileBase64: string; fileName: string; fileType: string }>
 }
 
 export async function createComplianceCase(env: Env, data: CreateComplianceCaseData) {
-  const fileUploadId = await uploadComplianceFileToNotion(
-    env,
-    data.fileBase64,
-    data.fileName,
-    data.fileType,
-  )
+  const uploadedFiles: Array<{ name: string; id: string }> = []
+  for (const file of data.files) {
+    const id = await uploadComplianceFileToNotion(env, file.fileBase64, file.fileName, file.fileType)
+    uploadedFiles.push({ name: file.fileName, id })
+  }
 
   const properties: Record<string, unknown> = {
     '案件名稱': { title: [{ text: { content: data.caseName } }] },
     '狀態': { status: { name: '待分析' } },
     '最高風險': { select: { name: '未判定' } },
-    '流體': { rich_text: toRichTextChunks(data.fluid ?? '') },
-    '管徑範圍': { rich_text: toRichTextChunks(data.pipeRange ?? '') },
+    '工程系統': { multi_select: data.systems.map(name => ({ name })) },
+    '規範範圍說明': { rich_text: toRichTextChunks(data.scopeNotes ?? '') },
+    '原始文件數': { number: data.files.length },
     '候選產品資料': { rich_text: toRichTextChunks(JSON.stringify(data.candidates)) },
     '備註': { rich_text: toRichTextChunks(data.notes ?? '') },
-    '原始規範': { files: [{ type: 'file_upload', file_upload: { id: fileUploadId } }] },
+    '原始規範': {
+      files: uploadedFiles.map(file => ({
+        name: file.name,
+        type: 'file_upload',
+        file_upload: { id: file.id },
+      })),
+    },
   }
 
   if (data.projectId) properties['工程'] = { relation: [{ id: data.projectId }] }
-  if (data.designPressure !== undefined) properties['設計壓力 MPa'] = { number: data.designPressure }
-  if (data.testPressure !== undefined) properties['試驗壓力 MPa'] = { number: data.testPressure }
-  if (data.temperature !== undefined) properties['使用溫度 ℃'] = { number: data.temperature }
 
   return notionRequest(env, 'POST', '/pages', {
     parent: { database_id: env.NOTION_DB_COMPLIANCE_CASES },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Alert, Button, Card, Col, Divider, Form, Input, InputNumber,
+  Alert, Button, Card, Col, Divider, Form, Input,
   Row, Select, Space, Tag, Typography, Upload, message,
 } from 'antd'
 import {
@@ -14,6 +14,8 @@ const { Title, Paragraph, Text } = Typography
 const { Dragger } = Upload
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024
+const MAX_FILE_COUNT = 10
 const ALLOWED_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -30,11 +32,8 @@ function supportedFileType(file: File): string | null {
 type FormValues = {
   caseName: string
   projectId?: string
-  designPressure?: number
-  testPressure?: number
-  temperature?: number
-  fluid?: string
-  pipeRange?: string
+  systems?: string[]
+  scopeNotes?: string
   notes?: string
 }
 
@@ -57,7 +56,7 @@ export default function ComplianceChecker() {
   const [form] = Form.useForm<FormValues>()
   const [projects, setProjects] = useState<ProjectWithStats[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
-  const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [sourceFiles, setSourceFiles] = useState<File[]>([])
   const [candidates, setCandidates] = useState<ComplianceCandidateProduct[]>(emptyCandidates)
   const [saving, setSaving] = useState(false)
   const [createdCase, setCreatedCase] = useState<ComplianceCase | null>(null)
@@ -84,29 +83,42 @@ export default function ComplianceChecker() {
       message.error('文件不得超過 15 MB')
       return Upload.LIST_IGNORE
     }
-    setSourceFile(file)
+    setSourceFiles(current => {
+      if (current.some(item => item.name === file.name && item.size === file.size)) return current
+      if (current.length >= MAX_FILE_COUNT) {
+        message.error(`一次最多上傳 ${MAX_FILE_COUNT} 份文件`)
+        return current
+      }
+      if (current.reduce((total, item) => total + item.size, 0) + file.size > MAX_TOTAL_SIZE) {
+        message.error('全部文件合計不得超過 50 MB')
+        return current
+      }
+      return [...current, file]
+    })
     return false
   }
 
   const handleSubmit = async (values: FormValues) => {
-    if (!sourceFile) {
-      message.warning('請先上傳原始規範')
+    if (sourceFiles.length === 0) {
+      message.warning('請先上傳至少一份原始規範')
       return
     }
 
     setSaving(true)
     try {
-      const fileBase64 = await fileToBase64(sourceFile)
+      const files = await Promise.all(sourceFiles.map(async file => ({
+        fileBase64: await fileToBase64(file),
+        fileName: file.name,
+        fileType: supportedFileType(file)!,
+      })))
       const result = await api.complianceCases.create({
         ...values,
         candidates: candidates.filter(candidate => candidate.brand.trim()),
-        fileBase64,
-        fileName: sourceFile.name,
-        fileType: supportedFileType(sourceFile)!,
+        files,
       })
       setCreatedCase(result)
       form.resetFields()
-      setSourceFile(null)
+      setSourceFiles([])
       setCandidates(emptyCandidates())
       message.success('規範檢查案件已建立')
     } catch (error) {
@@ -125,7 +137,7 @@ export default function ComplianceChecker() {
             規範合規檢查
           </Title>
           <Paragraph style={{ color: '#666', marginBottom: 0 }}>
-            建立檢查案件、保存原始規範及設計條件，並登錄最多三組候選產品供後續查證。
+            上傳第 13、15、16 篇機水電規範，保存文件範圍與已知候選產品，建立後續章碼、CNS及限制條件查核案件。
           </Paragraph>
         </div>
 
@@ -143,9 +155,9 @@ export default function ComplianceChecker() {
 
         <Row gutter={[12, 12]}>
           {[
-            { icon: <SearchOutlined />, title: '標準有效性', text: 'CNS、SAS、JIS 等標準版本與有效狀態', color: '#1F4E79' },
+            { icon: <SearchOutlined />, title: 'CNS強制查核', text: '每一筆CNS均查最新版、廢止及取代關係', color: '#1F4E79' },
             { icon: <FileTextOutlined />, title: '法規引用', text: '法規名稱、條號與引用內容是否一致', color: '#1A7A4A' },
-            { icon: <ToolOutlined />, title: '限制競爭', text: '特定標準、壓力、品牌或型號的實質影響', color: '#AD6800' },
+            { icon: <ToolOutlined />, title: '限制條件', text: '尺寸、容量、性能、型式與條件組合的實質影響', color: '#AD6800' },
           ].map(item => (
             <Col xs={24} md={8} key={item.title}>
               <Card size="small" style={{ height: '100%', borderRadius: 10 }}>
@@ -183,53 +195,56 @@ export default function ComplianceChecker() {
               </Col>
             </Row>
 
-            <Form.Item label="原始規範" required extra="支援 DOCX、PDF，單一文件上限 15 MB。">
+            <Form.Item label="原始規範" required extra="支援 DOCX、PDF；最多10份，單檔15 MB、合計50 MB。">
               <Dragger
                 accept=".docx,.pdf"
-                maxCount={1}
+                multiple
+                maxCount={MAX_FILE_COUNT}
                 beforeUpload={file => handleFile(file as File)}
-                onRemove={() => { setSourceFile(null); return true }}
-                fileList={sourceFile ? [{ uid: 'source', name: sourceFile.name, status: 'done', size: sourceFile.size, type: sourceFile.type }] : []}
+                onRemove={file => {
+                  setSourceFiles(current => current.filter(item => `${item.name}-${item.size}` !== file.uid))
+                  return true
+                }}
+                fileList={sourceFiles.map(file => ({
+                  uid: `${file.name}-${file.size}`,
+                  name: file.name,
+                  status: 'done' as const,
+                  size: file.size,
+                  type: file.type,
+                }))}
               >
                 <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-                <p className="ant-upload-text">點選或拖曳規範文件到此處</p>
-                <p className="ant-upload-hint">文件將透過安全後端直接保存至 Notion</p>
+                <p className="ant-upload-text">點選或拖曳一份或多份規範文件到此處</p>
+                <p className="ant-upload-hint">可同時包含管材、線材、設備、機具、施工及試驗規範</p>
               </Dragger>
             </Form.Item>
 
-            <Divider titlePlacement="left">實際設計需求</Divider>
-            <Row gutter={16}>
-              <Col xs={12} md={6}>
-                <Form.Item label="設計壓力 MPa" name="designPressure">
-                  <InputNumber min={0} step={0.1} style={{ width: '100%' }} placeholder="例如 1.0" />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6}>
-                <Form.Item label="試驗壓力 MPa" name="testPressure">
-                  <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6}>
-                <Form.Item label="最高溫度 ℃" name="temperature">
-                  <InputNumber min={-50} step={1} style={{ width: '100%' }} placeholder="例如 80" />
-                </Form.Item>
-              </Col>
-              <Col xs={12} md={6}>
-                <Form.Item label="管徑範圍" name="pipeRange">
-                  <Input placeholder="例如 13–60 Su" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item label="流體／使用環境" name="fluid">
-              <Input placeholder="例如：常溫生活用水" />
+            <Divider titlePlacement="left">規範範圍與工程系統</Divider>
+            <Form.Item
+              label="可能涉及的工程系統"
+              name="systems"
+              extra="可複選；不確定時可留空，後續由章碼與內文辨識。"
+            >
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="例如：消防、空調、電力"
+                options={['給水', '排水', '消防', '空調', '電力', '弱電監控', '其他'].map(value => ({ value, label: value }))}
+              />
+            </Form.Item>
+            <Form.Item label="規範範圍說明" name="scopeNotes">
+              <Input.TextArea
+                rows={4}
+                placeholder="例如：包含15223不鏽鋼管、16120電線電纜、16401低壓配電盤及火警受信總機；請逐條辨識尺寸、容量、性能、型式與CNS引用。"
+              />
             </Form.Item>
 
-            <Divider titlePlacement="left">候選產品（最多三組）</Divider>
+            <Divider titlePlacement="left">已知候選產品（選填，最多三組）</Divider>
             <Alert
               type="info"
               showIcon
               message="請填寫廠牌、產品系列及型號"
-              description="僅填廠牌通常不足以判斷是否符合；系統會以具體產品及官方證據逐項比較。候選產品不是必填，仍可先進行不帶品牌的盲掃。"
+              description="候選產品應對應特定設備或材料；案件建立後仍可在規範條件中補充。僅填廠牌不足以判斷符合性。"
               style={{ marginBottom: 16 }}
             />
             {candidates.map((candidate, index) => (
@@ -249,7 +264,7 @@ export default function ComplianceChecker() {
             ))}
 
             <Form.Item label="補充說明" name="notes">
-              <Input.TextArea rows={3} placeholder="例如：實際系統僅需 1.0 MPa，請檢查 2.0 MPa 是否構成超額性能條件。" />
+              <Input.TextArea rows={3} placeholder="例如：請特別檢查96×96 mm、150%持續1分鐘、受信總機20L及GR型等條件是否有必要性與三家產品證據。" />
             </Form.Item>
 
             <Alert
