@@ -10,6 +10,7 @@ import { handleBrandReports } from './routes/brand-reports'
 import { handleProjects } from './routes/projects'
 import { handleComplianceCases } from './routes/compliance-cases'
 import { handleLocalAnalyzer } from './routes/local-analyzer'
+import { syncOnlineResearch } from './online-research'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -92,5 +93,8 @@ export default {
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(syncOnlineResearch(env))
   },
 }

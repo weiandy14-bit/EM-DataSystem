@@ -3,6 +3,7 @@ import type {
   InspectionRecord, PriceTrend, InspectionLookupResult, EntityType,
   BrandMaster, BrandReport, Project, ProjectWithStats,
   ComplianceCandidateProduct, ComplianceCase, ComplianceRequirement, ComplianceSourceFile,
+  ComplianceResearchState,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -256,6 +257,10 @@ export const api = {
 
   complianceCases: {
     list: (): Promise<ComplianceCase[]> => get<ComplianceCase[]>('/compliance-cases'),
+    sync: (): Promise<Array<{ caseId: string; status: string; error?: string }>> =>
+      post('/compliance-cases/sync', {}),
+    report: (caseId: string): Promise<ComplianceResearchState> =>
+      get<ComplianceResearchState>(`/compliance-cases/${caseId}/report`),
     requirements: (caseId: string): Promise<ComplianceRequirement[]> =>
       get<ComplianceRequirement[]>(`/compliance-cases/${caseId}/requirements`),
     create: (data: {

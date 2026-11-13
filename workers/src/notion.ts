@@ -1,5 +1,7 @@
 export interface Env {
   NOTION_TOKEN: string
+  OPENAI_API_KEY: string
+  OPENAI_RESEARCH_MODEL?: string
   NOTION_DB_EQUIPMENT: string
   NOTION_DB_MATERIALS: string
   NOTION_DB_SPECIFICATIONS: string
@@ -554,6 +556,41 @@ export async function updateComplianceCaseStatus(
   return notionRequest(env, 'PATCH', `/pages/${caseId}`, { properties })
 }
 
+export async function appendComplianceReportToCase(
+  env: Env,
+  caseId: string,
+  summary: string,
+  clauses: Array<{ title: string; body: string; replacement: string }>,
+) {
+  const children: any[] = [
+    {
+      object: 'block', type: 'heading_2',
+      heading_2: { rich_text: [{ type: 'text', text: { content: '線上規範查證報告' } }] },
+    },
+    {
+      object: 'block', type: 'paragraph',
+      paragraph: { rich_text: toRichTextChunks(summary) },
+    },
+  ]
+  for (const clause of clauses) {
+    children.push({
+      object: 'block', type: 'heading_3',
+      heading_3: { rich_text: toRichTextChunks(clause.title) },
+    })
+    children.push({
+      object: 'block', type: 'paragraph',
+      paragraph: { rich_text: toRichTextChunks(clause.body) },
+    })
+    if (clause.replacement) {
+      children.push({
+        object: 'block', type: 'quote',
+        quote: { rich_text: toRichTextChunks(`建議替代條文：${clause.replacement}`) },
+      })
+    }
+  }
+  return notionRequest(env, 'PATCH', `/blocks/${caseId}/children`, { children: children.slice(0, 100) })
+}
+
 export type LocalAnalyzerRequirement = {
   file: string
   title: string
@@ -649,7 +686,7 @@ async function upsertPendingCnsCheck(
     '文件原始引用': { rich_text: toRichTextChunks(requirement.matched_text) },
     '正規化引用': { rich_text: toRichTextChunks(requirement.standard_ref) },
     '查核結果': { select: { name: '待查核' } },
-    '官方當時狀態': { rich_text: toRichTextChunks('本機已擷取引用，尚未完成官方來源查核') },
+    '官方當時狀態': { rich_text: toRichTextChunks('系統已擷取引用，請依線上證據覆核官方有效狀態') },
     '問題與處理建議': { rich_text: toRichTextChunks('必須查核CNS官方有效版本、廢止狀態及完整取代鏈。') },
     '查核完成': { checkbox: false },
     '需人工確認': { checkbox: true },
