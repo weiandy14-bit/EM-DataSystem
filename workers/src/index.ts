@@ -8,6 +8,7 @@ import { handleAuth, handleUsers, verifySession } from './routes/auth'
 import { handleBrands } from './routes/brands'
 import { handleBrandReports } from './routes/brand-reports'
 import { handleProjects } from './routes/projects'
+import { handleComplianceCases } from './routes/compliance-cases'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -70,6 +71,9 @@ export default {
         } else if (path.startsWith('/api/projects')) {
           const subpath = path.replace('/api/projects', '') || '/'
           res = await handleProjects(req, env, subpath)
+        } else if (path.startsWith('/api/compliance-cases')) {
+          const subpath = path.replace('/api/compliance-cases', '') || '/'
+          res = await handleComplianceCases(req, env, subpath)
         } else {
           res = new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
         }

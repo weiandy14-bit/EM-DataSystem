@@ -110,6 +110,18 @@ export interface ProjectWithStats extends Project {
   lastSavedAt?: string
 }
 
+export interface ComplianceCandidateProduct {
+  brand: string
+  series?: string
+  model?: string
+}
+
+export interface ComplianceCase {
+  id: string
+  caseName: string
+  status: string
+}
+
 export interface PriceTrend {
   year: number
   avgPrice: number
