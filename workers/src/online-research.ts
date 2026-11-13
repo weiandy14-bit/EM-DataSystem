@@ -148,7 +148,7 @@ export async function syncOnlineResearch(env: Env) {
           job.reportAppended = true
         }
         const start = job.savedClauseCount ?? 0
-        const batch = report.clauses.slice(start, start + 8)
+        const batch = report.clauses.slice(start, start + 5)
         if (batch.length) {
           await saveClauseBatchToNotion(env, job, batch, start)
           job.savedClauseCount = start + batch.length
@@ -222,7 +222,7 @@ async function saveClauseBatchToNotion(
   const requirements: LocalAnalyzerRequirement[] = clauses.map((clause, index) => ({
     file: clause.fileName || '原始規範',
     title: clause.requirement || `規範條件 ${offset + index + 1}`,
-    condition_type: clause.conditionType || '其他',
+    condition_type: normalizeConditionType(clause.conditionType),
     matched_text: clause.standardRef || clause.requirement,
     source_text: clause.originalText,
     location: clause.location,
@@ -243,9 +243,19 @@ async function saveClauseBatchToNotion(
 }
 
 function highestRisk(clauses: OnlineClauseResult[]) {
-  const ranks: Record<string, number> = { '通過': 0, '注意': 1, '無法判定': 2, '高風險': 3, '不符合': 4 }
-  return clauses.reduce((highest, clause) =>
-    (ranks[clause.risk] ?? 0) > (ranks[highest] ?? 0) ? clause.risk : highest, '通過')
+  if (clauses.some(clause => clause.risk === '不符合')) return '重大'
+  if (clauses.some(clause => clause.risk === '高風險')) return '高'
+  if (clauses.some(clause => clause.risk === '注意' || clause.risk === '無法判定')) return '中'
+  return '低'
+}
+
+function normalizeConditionType(value: string) {
+  const mapping: Record<string, string> = {
+    'CNS標準': '標準認證', '法規引用': '標準認證', '性能數值': '性能效率',
+    '尺寸': '尺寸公差', '容量': '容量點數迴路', '型式': '型式代號',
+    '材質': '材質構造', '試驗': '施工試驗', '其他': '其他',
+  }
+  return mapping[value] ?? '其他'
 }
 
 function buildResearchPrompt(data: {

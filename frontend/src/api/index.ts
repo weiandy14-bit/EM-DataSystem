@@ -4,6 +4,7 @@ import type {
   BrandMaster, BrandReport, Project, ProjectWithStats,
   ComplianceCandidateProduct, ComplianceCase, ComplianceRequirement, ComplianceSourceFile,
   ComplianceResearchState,
+  FreeComplianceRequirement,
 } from '../types'
 
 // 開發時用 mock；生產環境呼叫 Cloudflare Workers
@@ -271,6 +272,8 @@ export const api = {
       candidates: ComplianceCandidateProduct[]
       notes?: string
       files: ComplianceSourceFile[]
+      analysisMode: 'rules' | 'ai'
+      freeRequirements?: FreeComplianceRequirement[]
     }): Promise<ComplianceCase> => post<ComplianceCase>('/compliance-cases', data),
   },
 

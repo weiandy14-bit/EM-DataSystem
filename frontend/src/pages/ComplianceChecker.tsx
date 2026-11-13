@@ -5,7 +5,8 @@ import {
 } from 'antd'
 import {
   CheckCircleOutlined, ClockCircleOutlined, FileTextOutlined, InboxOutlined,
-  ReloadOutlined, SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
+  ExperimentOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined,
+  ThunderboltOutlined, ToolOutlined,
 } from '@ant-design/icons'
 import { api } from '../api'
 import type {
@@ -81,8 +82,9 @@ export default function ComplianceChecker() {
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [sourceFiles, setSourceFiles] = useState<File[]>([])
   const [candidates, setCandidates] = useState<ComplianceCandidateProduct[]>(emptyCandidates)
-  const [saving, setSaving] = useState(false)
+  const [submittingMode, setSubmittingMode] = useState<'rules' | 'ai' | null>(null)
   const [createdCase, setCreatedCase] = useState<ComplianceCase | null>(null)
+  const [createdMode, setCreatedMode] = useState<'rules' | 'ai'>('rules')
   const [cases, setCases] = useState<ComplianceCase[]>([])
   const [casesLoading, setCasesLoading] = useState(true)
   const [requirements, setRequirements] = useState<Record<string, ComplianceRequirement[]>>({})
@@ -163,18 +165,21 @@ export default function ComplianceChecker() {
     return false
   }
 
-  const handleSubmit = async (values: FormValues) => {
+  const handleSubmit = async (values: FormValues, analysisMode: 'rules' | 'ai') => {
     if (sourceFiles.length === 0) {
       message.warning('請先上傳至少一份原始規範')
       return
     }
-    if (candidates.some(candidate => !candidate.brand.trim())) {
+    if (analysisMode === 'ai' && candidates.some(candidate => !candidate.brand.trim())) {
       message.warning('請填寫三家候選產品的廠牌，才能進行線上市場比較')
       return
     }
 
-    setSaving(true)
+    setSubmittingMode(analysisMode)
     try {
+      const freeRequirements = analysisMode === 'rules'
+        ? await import('../utils/freeComplianceAnalyzer').then(module => module.analyzeFilesFree(sourceFiles))
+        : undefined
       const files = await Promise.all(sourceFiles.map(async file => ({
         fileBase64: await fileToBase64(file),
         fileName: file.name,
@@ -184,18 +189,32 @@ export default function ComplianceChecker() {
         ...values,
         candidates: candidates.filter(candidate => candidate.brand.trim()),
         files,
+        analysisMode,
+        freeRequirements,
       })
       setCreatedCase(result)
+      setCreatedMode(analysisMode)
       form.resetFields()
       setSourceFiles([])
       setCandidates(emptyCandidates())
       await loadCases(true)
-      if (result.analysisError) message.warning(`案件已保存，但線上分析未啟動：${result.analysisError}`)
-      else message.success('案件已建立，線上分析已開始')
+      if (result.analysisError) message.warning(`案件已保存，但 AI 分析未啟動：${result.analysisError}`)
+      else if (analysisMode === 'rules') message.success(`免費檢核已開始，共擷取 ${freeRequirements?.length ?? 0} 項條件`)
+      else message.success('案件已建立，AI 三家深度查證已開始')
     } catch (error) {
       message.error(error instanceof Error ? error.message : '案件建立失敗')
     } finally {
-      setSaving(false)
+      setSubmittingMode(null)
+    }
+  }
+
+  const submitMode = async (analysisMode: 'rules' | 'ai') => {
+    try {
+      const values = await form.validateFields()
+      await handleSubmit(values, analysisMode)
+    } catch (error) {
+      if (error && typeof error === 'object' && 'errorFields' in error) return
+      message.error(error instanceof Error ? error.message : '表單檢查失敗')
     }
   }
 
@@ -220,7 +239,9 @@ export default function ComplianceChecker() {
             message={`案件「${createdCase.caseName}」已建立`}
             description={createdCase.analysisError
               ? `文件已保存至 Notion，但線上分析未啟動：${createdCase.analysisError}`
-              : '文件已保存至 Notion，系統正在擷取規範條件並查證三家產品資料。'}
+              : createdMode === 'rules'
+                ? '文件已保存至 Notion，免費規則引擎正在擷取 CNS、標準、尺寸、容量及性能條件，不會使用 OpenAI 額度。'
+                : '文件已保存至 Notion，AI 正在擷取規範條件並查證三家產品資料。'}
             closable
             onClose={() => setCreatedCase(null)}
           />
@@ -228,7 +249,7 @@ export default function ComplianceChecker() {
 
         <Row gutter={[12, 12]}>
           {[
-            { icon: <SearchOutlined />, title: 'CNS強制查核', text: '每一筆CNS均查最新版、廢止及取代關係', color: '#1F4E79' },
+            { icon: <SearchOutlined />, title: 'CNS引用擷取', text: '逐筆列出CNS引用，待官方主檔確認有效、廢止及取代', color: '#1F4E79' },
             { icon: <FileTextOutlined />, title: '法規引用', text: '法規名稱、條號與引用內容是否一致', color: '#1A7A4A' },
             { icon: <ToolOutlined />, title: '限制條件', text: '尺寸、容量、性能、型式與條件組合的實質影響', color: '#AD6800' },
           ].map(item => (
@@ -244,15 +265,15 @@ export default function ComplianceChecker() {
         </Row>
 
         <Card
-          title={<Space><ClockCircleOutlined />線上分析案件</Space>}
+          title={<Space><ClockCircleOutlined />規範檢查案件</Space>}
           extra={<Button icon={<ReloadOutlined />} onClick={() => loadCases()} loading={casesLoading}>重新整理</Button>}
           style={{ borderRadius: 12 }}
         >
           <Alert
             type="info"
             showIcon
-            message="系統會在線上讀取規範並查證三家產品"
-            description="不需啟動批次檔或本機程式。本頁每15秒更新進度；完成後會顯示逐條比較、判定理由及原廠證據連結。"
+            message="免費規則檢核與 AI 深度查證可分開使用"
+            description="免費模式不使用 OpenAI 額度；AI 模式才會搜尋三家原廠資料、判斷等效性並產生具證據的替代條文。本頁每15秒更新進度。"
             style={{ marginBottom: 16 }}
           />
           <Spin spinning={casesLoading}>
@@ -286,7 +307,7 @@ export default function ComplianceChecker() {
         </Card>
 
         <Card title={<Space><SafetyCertificateOutlined />建立檢查案件</Space>} style={{ borderRadius: 12 }}>
-          <Form form={form} layout="vertical" onFinish={handleSubmit} requiredMark="optional">
+          <Form form={form} layout="vertical" requiredMark="optional">
             <Row gutter={16}>
               <Col xs={24} md={14}>
                 <Form.Item label="案件名稱" name="caseName" rules={[{ required: true, message: '請輸入案件名稱' }]}>
@@ -354,12 +375,12 @@ export default function ComplianceChecker() {
               />
             </Form.Item>
 
-            <Divider titlePlacement="left">比較產品（必填三組）</Divider>
+            <Divider titlePlacement="left">比較產品（AI 深度查證時必填三組）</Divider>
             <Alert
               type="info"
               showIcon
-              message="請至少填寫三家廠牌；系列與型號越完整，判斷越可靠"
-              description="系統會優先查找原廠產品頁、型錄、手冊及認證資料庫。若只找到廠牌層級資料，會標示為無法確認，不會自行推論符合。"
+              message="免費模式可留空；AI 模式必須填寫三家廠牌"
+              description="AI 模式會優先查找原廠產品頁、型錄、手冊及認證資料庫。若只找到廠牌層級資料，會標示為無法確認，不會自行推論符合。"
               style={{ marginBottom: 16 }}
             />
             {candidates.map((candidate, index) => (
@@ -382,16 +403,52 @@ export default function ComplianceChecker() {
               <Input.TextArea rows={3} placeholder="例如：請特別檢查96×96 mm、150%持續1分鐘、受信總機20L及GR型等條件是否有必要性與三家產品證據。" />
             </Form.Item>
 
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Card size="small" style={{ height: '100%', borderColor: '#52C41A' }}>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Text strong>免費規則檢核</Text>
+                    <Text type="secondary">擷取 CNS、標準、尺寸、容量、百分比、時間、壓力、溫度與疑似限制文字；不搜尋三家網路證據。</Text>
+                    <Button
+                      icon={<ExperimentOutlined />}
+                      loading={submittingMode === 'rules'}
+                      disabled={submittingMode !== null && submittingMode !== 'rules'}
+                      onClick={() => submitMode('rules')}
+                      size="large"
+                      block
+                    >
+                      免費檢核（不使用 API 額度）
+                    </Button>
+                  </Space>
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card size="small" style={{ height: '100%', borderColor: '#1677FF' }}>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Text strong>AI 三家深度查證</Text>
+                    <Text type="secondary">搜尋三家原廠證據、判斷等效性並產生可直接使用的中性替代條文；需要 OpenAI API 額度。</Text>
+                    <Button
+                      type="primary"
+                      icon={<ThunderboltOutlined />}
+                      loading={submittingMode === 'ai'}
+                      disabled={submittingMode !== null && submittingMode !== 'ai'}
+                      onClick={() => submitMode('ai')}
+                      size="large"
+                      block
+                    >
+                      AI 深度查證（需 API 額度）
+                    </Button>
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
             <Alert
               type="warning"
               showIcon
-              message="線上結果是具證據的風險篩選，不會自動作成違法結論"
-              description="後續結果將標示風險與證據來源，最終仍需由設計或採購專業人員覆核。"
-              style={{ marginBottom: 16 }}
+              message="兩種結果均為風險篩選，不會自動作成違法結論"
+              description="免費模式未查證市場產品；AI 模式仍需由設計、消防、電機或採購專業人員覆核證據與建議文字。"
+              style={{ marginTop: 16 }}
             />
-            <Button type="primary" htmlType="submit" loading={saving} size="large">
-              建立案件並開始線上分析
-            </Button>
           </Form>
         </Card>
       </Space>
@@ -404,7 +461,7 @@ function RequirementList({ items, status }: { items: ComplianceRequirement[]; st
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={status === '待分析' ? '線上分析尚未啟動' : status === '分析中' ? '正在擷取條款並查證原廠資料' : '尚無可顯示的資料庫紀錄'}
+        description={status === '待分析' ? '檢核尚未啟動' : status === '分析中' ? '正在擷取與保存規範條件' : '尚無可顯示的資料庫紀錄'}
       />
     )
   }
@@ -439,11 +496,17 @@ function RequirementList({ items, status }: { items: ComplianceRequirement[]; st
 }
 
 function OnlineReportView({ state, status }: { state?: ComplianceResearchState; status: string }) {
+  if (state?.freeJob?.error) {
+    return <Alert type="error" showIcon message="免費規則檢核未完成" description={state.freeJob.error} />
+  }
   if (state?.job?.error) {
     return <Alert type="error" showIcon message="線上分析未完成" description={state.job.error} />
   }
+  if (state?.freeJob && state.freeJob.status !== 'completed') {
+    return <Alert type="info" showIcon message="免費規則檢核進行中" description={`已保存 ${state.freeJob.savedCount}／${state.freeJob.total} 項條件，系統會分批寫入 Notion。`} />
+  }
   if (!state?.report) {
-    if (status === '分析中') return <Alert type="info" showIcon message="線上分析進行中" description="系統正在閱讀文件、搜尋原廠資料並核對三家產品，完成後會自動顯示結果。" />
+    if (state?.job && status === '分析中') return <Alert type="info" showIcon message="AI 深度查證進行中" description="系統正在閱讀文件、搜尋原廠資料並核對三家產品，完成後會自動顯示結果。" />
     return null
   }
   return <OnlineReport report={state.report} />
