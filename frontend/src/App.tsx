@@ -7,7 +7,6 @@ import Login from './pages/Login'
 import UserManagement from './pages/UserManagement'
 import Hub from './pages/Hub'
 import ProjectBrandSystem from './pages/ProjectBrandSystem'
-import ComplianceChecker from './pages/ComplianceChecker'
 import { exportRef } from './exportManager'
 import { logout, getCurrentUser } from './auth'
 import type { AuthUser } from './auth'
@@ -81,7 +80,6 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
           <Route path="/" element={<Hub />} />
           <Route path="/equipment" element={<EquipmentList />} />
           <Route path="/brand-system" element={<ProjectBrandSystem />} />
-          <Route path="/compliance-check" element={<ComplianceChecker />} />
           {user.role === 'admin' && <Route path="/users" element={<UserManagement />} />}
           <Route path="*" element={<Hub />} />
         </Routes>

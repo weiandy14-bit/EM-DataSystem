@@ -8,14 +8,10 @@ import { handleAuth, handleUsers, verifySession } from './routes/auth'
 import { handleBrands } from './routes/brands'
 import { handleBrandReports } from './routes/brand-reports'
 import { handleProjects } from './routes/projects'
-import { handleComplianceCases } from './routes/compliance-cases'
-import { handleLocalAnalyzer } from './routes/local-analyzer'
-import { syncOnlineResearch } from './online-research'
-import { syncFreeAnalysis } from './free-analysis'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
@@ -37,10 +33,7 @@ export default {
     try {
       let res: Response
 
-      if (path.startsWith('/api/local-analyzer')) {
-        const subpath = path.replace('/api/local-analyzer', '') || '/'
-        res = await handleLocalAnalyzer(req, env, subpath)
-      } else if (path.startsWith('/api/auth')) {
+      if (path.startsWith('/api/auth')) {
         const subpath = path.replace('/api/auth', '') || '/'
         res = await handleAuth(req, env, subpath)
       } else if (path.startsWith('/api/users')) {
@@ -77,9 +70,6 @@ export default {
         } else if (path.startsWith('/api/projects')) {
           const subpath = path.replace('/api/projects', '') || '/'
           res = await handleProjects(req, env, subpath)
-        } else if (path.startsWith('/api/compliance-cases')) {
-          const subpath = path.replace('/api/compliance-cases', '') || '/'
-          res = await handleComplianceCases(req, env, subpath)
         } else {
           res = new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
         }
@@ -94,11 +84,5 @@ export default {
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       })
     }
-  },
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil((async () => {
-      await syncOnlineResearch(env)
-      await syncFreeAnalysis(env)
-    })())
   },
 }
